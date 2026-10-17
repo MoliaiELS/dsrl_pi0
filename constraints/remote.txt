@@ -1,0 +1,19 @@
+# TensorFlow 2.19 and wandb 0.19.9 require protobuf <6.
+# These Google/gRPC releases were resolved together against protobuf 5.29.6.
+protobuf==5.29.6
+google-api-core==2.33.0
+googleapis-common-protos==1.75.0
+google-cloud-storage-control==1.12.0
+grpc-google-iam-v1==0.14.4
+grpcio-status==1.71.2
+proto-plus==1.28.2
+
+# Preserve the upstream JAX/TensorFlow stack and README's CPU-only torch.
+jax==0.5.0
+jaxlib==0.5.0
+jax-cuda12-plugin==0.5.0
+jax-cuda12-pjrt==0.5.0
+tensorflow==2.19.0
+tf-keras==2.19.0
+torch==2.6.0+cpu
+mujoco==2.3.7

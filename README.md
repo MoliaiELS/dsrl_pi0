@@ -54,6 +54,40 @@ pip install -e LIBERO
 pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu # needed for libero
 ```
 
+### IADC remote environment repair (installation checks only)
+
+The remote environment tools do not start training or inference:
+
+```powershell
+.\tools\remote.ps1 install-env
+.\tools\remote.ps1 doctor
+```
+
+Connection, Conda, code and storage paths are in `tools/remote.json`. Every call
+initializes Conda and sources `tools/remote-env.sh`. Use that script for manual
+sessions as well; the repository's original `bash.sh` launches experiments.
+The installation is validated in the separate `dsrl_pi0-envfix` worktree;
+editable installs must point to that directory. Original remote files are retained.
+
+`constraints/remote.txt` keeps TensorFlow 2.19 / protobuf 5.29.6 and compatible
+Google/gRPC packages together. Install all four editable projects in one pip
+transaction with those constraints. LIBERO requires setuptools
+`--config-settings editable_mode=compat` because its namespace package layout
+produces an empty finder with the default editable mode. Pillow is pinned to
+11.1.0 to satisfy the locked OpenPI dependency (`>=11.0.0`).
+
+Torch follows the original README's CPU 2.6.0 build. If the server cannot reach
+the official PyTorch index, transfer its CPython 3.11 Linux wheel to
+`$DSRL_DATA_ROOT/wheels/torch-2.6.0+cpu-cp311-cp311-linux_x86_64.whl` and rerun
+`install-env`. Verify its SHA256 against the official wheel index before use.
+
+Import checks force JAX to CPU, disable W&B, and set offline model access. They
+import the simulation training module without calling `main`, and do not load
+weights, construct a simulator, generate actions, or update parameters. These
+checks establish installation health only. Environment snapshots, commit IDs,
+submodule versions and logs are saved under
+`$DSRL_DATA_ROOT/logs/environment/`; data and caches stay outside Git.
+
 ## Training (Simulation)
 Libero
 ```

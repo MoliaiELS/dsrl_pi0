@@ -19,7 +19,8 @@ orbax-checkpoint==0.11.1
 orderly-set==5.4.0
 packaging==24.2
 pandas==2.2.3
-pillow==10.4.0
+# The locked OpenPI submodule requires pillow>=11.0.0.
+pillow==11.1.0
 scipy==1.15.2
 tensorflow==2.19.0
 etils==1.12.2

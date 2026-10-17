@@ -1,0 +1,7 @@
+{
+  "SshHost": "idac_sever",
+  "RepoDir": "/mnt/slurmfs-4090node1/homes/yguo704/dsrl_pi0-envfix",
+  "CondaRoot": "/mnt/slurmfs-4090node1/homes/yguo704/miniforge3",
+  "CondaEnv": "dsrl_pi0",
+  "DataRoot": "/mnt/slurmfs-4090node3/user_data/yguo704/dsrl_pi0"
+}
