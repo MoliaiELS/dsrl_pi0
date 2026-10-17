@@ -3,9 +3,12 @@ param(
     [Parameter(Position = 0)]
     [ValidateSet('doctor', 'install-env')]
     [string]$Command = 'doctor',
-    [string]$ConfigPath = (Join-Path $PSScriptRoot 'remote.json')
+    [string]$ConfigPath = ''
 )
 $ErrorActionPreference = 'Stop'
+if (-not $ConfigPath) {
+    $ConfigPath = Join-Path $PSScriptRoot 'remote.json'
+}
 $config = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
 
 function Quote-Bash([string]$Value) {
