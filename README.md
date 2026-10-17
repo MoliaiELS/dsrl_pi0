@@ -59,9 +59,12 @@ pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu # need
 The remote environment tools do not start training or inference:
 
 ```powershell
-.\tools\remote.ps1 install-env
-.\tools\remote.ps1 doctor
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\remote.ps1 install-env
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\remote.ps1 doctor
 ```
+
+`-ExecutionPolicy Bypass` applies to this PowerShell process only; it does not
+change the machine's execution policy.
 
 Connection, Conda, code and storage paths are in `tools/remote.json`. Every call
 initializes Conda and sources `tools/remote-env.sh`. Use that script for manual
