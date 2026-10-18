@@ -1,6 +1,6 @@
 diffusers==0.33.1
 distrax==0.1.5
-dm-control==1.0.14
+dm-control==1.0.15
 easydict==1.13
 einops==0.8.1
 flax==0.10.2
@@ -28,7 +28,7 @@ matplotlib==3.9.3
 wandb[media]==0.19.9
 opencv-python==4.11.0.86
 robosuite==1.4.1
-gym-aloha==0.1.1
+gym-aloha==0.1.5
 bddl==3.5.0
 tf_keras==2.19.0
 moviepy==1.0.3

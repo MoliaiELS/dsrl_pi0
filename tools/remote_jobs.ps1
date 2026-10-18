@@ -6,7 +6,8 @@ param(
     [Parameter(Position=1)][string]$JobId='',
     [string]$ConfigPath='', [string]$Commit='', [int]$Seed=0,
     [string]$ExperimentConfig='configs/libero_baseline.json',
-    [string]$SmokeJobId='', [string]$BaseJobId='', [string]$RestorePath=''
+    [string]$SmokeJobId='', [string]$BaseJobId='', [string]$RestorePath='',
+    [switch]$PrintScript
 )
 $ErrorActionPreference='Stop'
 if (-not $ConfigPath) { $ConfigPath=Join-Path $PSScriptRoot 'remote.json' }
@@ -31,18 +32,18 @@ if ($Command -in @('status','logs')) {
     if ($Commit -notmatch '^[a-f0-9]{40}$') { throw 'Commit must be a full SHA.' }
     $repo=$config.WorktreeRoot+'/'+$Commit.Substring(0,12)
     $script += @(
-        'source '+(Quote-Bash ($config.CondaRoot+'/etc/profile.d/conda.sh')),
-        'conda activate '+(Quote-Bash $config.CondaEnv),
-        'export DSRL_DATA_ROOT='+(Quote-Bash $config.DataRoot)
+        ('source '+(Quote-Bash ($config.CondaRoot+'/etc/profile.d/conda.sh'))),
+        ('conda activate '+(Quote-Bash $config.CondaEnv)),
+        ('export DSRL_DATA_ROOT='+(Quote-Bash $config.DataRoot))
     )
     if ($Command -eq 'sync') {
         $script += @(
-            'cd '+(Quote-Bash $config.SourceRepo),
+            ('cd '+(Quote-Bash $config.SourceRepo)),
             'git status --short',
-            'git fetch '+(Quote-Bash $config.RemoteRepoUrl)+' '+(Quote-Bash $Commit),
+            ('git fetch '+(Quote-Bash $config.RemoteRepoUrl)+' '+(Quote-Bash $Commit)),
             ('test "$(git rev-parse FETCH_HEAD)" = '+(Quote-Bash $Commit)),
             ('if ! test -d '+(Quote-Bash $repo)+'; then git worktree add --detach '+(Quote-Bash $repo)+' '+(Quote-Bash $Commit)+'; fi'),
-            'cd '+(Quote-Bash $repo),
+            ('cd '+(Quote-Bash $repo)),
             'test -z "$(git status --porcelain --untracked-files=no)"',
             ('git -c protocol.file.allow=always -c '+(Quote-Bash ('submodule.LIBERO.url='+$config.RepoDir+'/LIBERO'))+' -c '+(Quote-Bash ('submodule.openpi.url='+$config.RepoDir+'/openpi'))+' submodule update --init'),
             ('git -C openpi -c protocol.file.allow=always -c '+(Quote-Bash ('submodule.third_party/aloha.url='+$config.RepoDir+'/openpi/third_party/aloha'))+' -c '+(Quote-Bash ('submodule.third_party/libero.url='+$config.RepoDir+'/openpi/third_party/libero'))+' submodule update --init'),
@@ -50,7 +51,7 @@ if ($Command -in @('status','logs')) {
             'python -m compileall -q tools examples jaxrl2'
         )
     } elseif ($Command -in @('doctor','install-env')) {
-        $script += @('cd '+(Quote-Bash $repo), 'source tools/remote-env.sh')
+        $script += @(('cd '+(Quote-Bash $repo)), 'source tools/remote-env.sh')
         if ($Command -eq 'doctor') { $script += 'python -u tools/check_env.py' }
         else { $script += 'bash tools/install-env.sh' }
     } else {
@@ -65,12 +66,12 @@ if ($Command -in @('status','logs')) {
         if ($mode -eq 'eval') { $mode=if ($RestorePath) {'eval'} else {'base'} }
         $limit=if ($Command -in @('env','smoke')) {$config.Slurm.SmokeTime} elseif ($Command -eq 'eval') {$config.Slurm.EvalTime} else {$config.Slurm.TrainTime}
         $script += 'mkdir -p '+(Quote-Bash ($config.DataRoot+'/logs/slurm'))+' '+(Quote-Bash ($config.DataRoot+'/runs'))
-        $arguments=@('sbatch --parsable', '--partition='+(Quote-Bash $config.Slurm.Partition),
-            '--account='+(Quote-Bash $config.Slurm.Account), '--qos='+(Quote-Bash $config.Slurm.Qos),
-            '--gres='+(Quote-Bash $config.Slurm.Gres), '--cpus-per-task='+$config.Slurm.Cpus,
-            '--exclude='+(Quote-Bash $config.Slurm.Exclude), '--time='+(Quote-Bash $limit),
-            '--job-name='+(Quote-Bash ('dsrl-'+$mode+'-s'+$Seed)),
-            '--output='+(Quote-Bash ($config.DataRoot+'/logs/slurm/%j.log')),
+        $arguments=@('sbatch --parsable', ('--partition='+(Quote-Bash $config.Slurm.Partition)),
+            ('--account='+(Quote-Bash $config.Slurm.Account)), ('--qos='+(Quote-Bash $config.Slurm.Qos)),
+            ('--gres='+(Quote-Bash $config.Slurm.Gres)), ('--cpus-per-task='+$config.Slurm.Cpus),
+            ('--exclude='+(Quote-Bash $config.Slurm.Exclude)), ('--time='+(Quote-Bash $limit)),
+            ('--job-name='+(Quote-Bash ('dsrl-'+$mode+'-s'+$Seed))),
+            ('--output='+(Quote-Bash ($config.DataRoot+'/logs/slurm/%j.log'))),
             (Quote-Bash ($repo+'/tools/job.sh')), (Quote-Bash $repo),
             (Quote-Bash $config.CondaRoot), (Quote-Bash $config.CondaEnv),
             (Quote-Bash $config.DataRoot), (Quote-Bash $mode),
@@ -81,6 +82,7 @@ if ($Command -in @('status','logs')) {
         $script += 'echo "RESULT='+$config.DataRoot+'/runs/job-$job"'
     }
 }
+if ($PrintScript) { $script; exit }
 $payload=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes(($script -join "`n")+"`n"))
 & ssh -o BatchMode=yes -o ConnectTimeout=15 $config.SshHost "echo $payload | base64 -d | bash"
 if ($LASTEXITCODE -ne 0) { throw "Remote $Command failed (exit $LASTEXITCODE)." }
