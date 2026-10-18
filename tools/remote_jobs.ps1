@@ -18,11 +18,43 @@ if ($Command -in @('status','logs')) {
     if ($JobId -notmatch '^\d+$') { throw 'Provide an explicit numeric job ID.' }
     $script += 'record='+ (Quote-Bash ($config.DataRoot+'/runs/job-'+$JobId))
     if ($Command -eq 'status') {
+        $summary=@'
+import json, sys
+from pathlib import Path
+p=Path(sys.argv[1])
+def read(name):
+    f=p/name
+    return json.loads(f.read_text()) if f.exists() else {}
+latest=read('latest.json')
+keys=['phase','gradient_updates','wall_seconds','env_steps','chunk_transitions','episodes',
+      'evaluation/total_episodes','evaluation/total_env_steps','evaluation/total_chunks',
+      'evaluation/success_rate','evaluation/avg_episode_len','training/actor_loss',
+      'training/critic_loss','training/temperature','checkpoint']
+result={'directory':str(p),'run':read('run.json'),
+        'metrics':{k:latest[k] for k in keys if k in latest}}
+for name in ['SUCCESS.json','FAILED.json']:
+    value=read(name)
+    if value: result[name]={k:v for k,v in value.items() if k!='traceback'}
+metrics=p/'metrics.jsonl'
+if metrics.exists():
+    events=[json.loads(s) for s in metrics.read_text().splitlines() if s.strip()]
+    episodes=[e for e in events if 'evaluation/episode_success' in e]
+    result['evaluation_completed']=len(episodes)
+    result['evaluation_successes']=sum(bool(e['evaluation/episode_success']) for e in episodes)
+resources=p/'resources.jsonl'
+if resources.exists():
+    samples=[json.loads(s) for s in resources.read_text().splitlines() if s.strip()]
+    if samples:
+        memory=[float(g['process_memory_mib']) for s in samples for g in s.get('gpus',[])
+                if g.get('process_memory_mib','').replace('.','',1).isdigit()]
+        result['resources']={'samples':len(samples),'peak_rss_mib':max(s['process_max_rss_mib'] for s in samples),
+                             'peak_gpu_process_memory_mib':max(memory,default=0),'latest':samples[-1]}
+print(json.dumps(result,indent=2))
+'@
         $script += @(
             ('squeue -j '+$JobId+' -o "%.18i %.10T %.12M %.20R"'),
             ('sacct -j '+$JobId+' --format=JobID,JobName,State,ExitCode,Elapsed,AllocTRES -P'),
-            'for f in run.json latest.json SUCCESS.json FAILED.json; do if test -f "$record/$f"; then echo "$f"; cat "$record/$f"; fi; done',
-            'if test -f "$record/resources.jsonl"; then tail -2 "$record/resources.jsonl"; fi'
+            ('python3 -c '+(Quote-Bash $summary)+' "$record"')
         )
     } else {
         $script += ('tail -80 '+(Quote-Bash ($config.DataRoot+'/logs/slurm/'+$JobId+'.log')))

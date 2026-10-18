@@ -23,10 +23,10 @@
 | --- | --- | --- |
 | 核对远端与 Slurm | 已检查 | 分区 GPU，账户 iadc-acco，QOS phd；单卡 4090，长作业排除登录节点 |
 | LIBERO 运行版本锁 | 已验证渲染 | MuJoCo 3.3.1、gym-aloha 0.1.5、dm-control 1.0.15；pip check 通过；job 18041 在 4090node2 渲染通过 |
-| 权重与 tokenizer 缓存 | 下载中 | tokenizer 官方 MD5/SHA256 已核对；checkpoint 19 文件、12,014,131,888 字节；从官方 GCS 同内容镜像并行下载，校验原 S3 multipart ETag |
+| 权重与 tokenizer 缓存 | 已验证 | tokenizer 官方 MD5/SHA256 已核对；checkpoint 19 文件、12,014,131,888 字节，全部通过原 S3 ETag／multipart ETag；清单保存在模型目录 download_manifest.json |
 | 固定入口与本地指标／视频 | 已实现 | sync、env、smoke、eval、train、status、logs；正式提交要求短测和 Base 作业成功 |
-| 模型／动作／更新／保存恢复短测试 | 待完成 | 必须通过后才正式训练 |
-| Base VLA 评估 | 待完成 | 原始高斯先验，固定配置与 seed |
+| 模型／动作／更新／保存恢复短测试 | 已验证 18044 | COMPLETED/0，batch 256、16 次更新；参数变化 L2=0.571960；冻结 VLA 输出不变、独立控制器保存恢复一致 |
+| Base VLA 评估 | 已提交 18045 | 原始高斯先验，100 回合、每回合最多 400 步、seed 0，commit c227be8 |
 | seed 0 正式训练 | 未提交 | 500,000 梯度更新；chunk 和环境步数另计 |
 
 ## 固定协议与资源
@@ -44,6 +44,9 @@
 - `18041`：渲染探针，commit `b61d4ac`，4090node2，36 秒，COMPLETED/0；结果 `runs/job-18041/environment.png`。
 - `18042`：渲染 + SAC 更新／恢复探针，commit `92da8e3`，4090node2，FAILED/1。3 次更新均有限，恢复测试发现原保存前缀 `checkpoint` 与恢复默认前缀 `checkpoint_` 不一致；修复后复测，不把该失败称为训练成功。
 - `18043`：修复后的渲染 + SAC 探针，commit `cb0a06c`，4090node2，76 秒，COMPLETED/0；3 次更新有限，actor 参数变化 L2=0.151459，独立初始化控制器恢复后输出一致。
+- `18044`：完整 VLA 集成短测，commit `c227be8`，4090node2，8 分 28 秒，COMPLETED/0；16 次更新均有限，参数变化 L2=0.571960，冻结 VLA 输出不变，保存恢复后输出一致。日志 `logs/slurm/18044.log`，结果 `runs/job-18044`。40 步短回合仅用于流程检查，其成功率不作为基线成绩。
+- `18045`：Base VLA 100 回合评估，commit `c227be8`、seed 0，已提交；结果 `runs/job-18045`。后续正式训练提交将显式指定相同 commit，并要求 18044／18045 的成功记录。
+- 完整短测采样峰值：GPU 9,219 MiB，主存 RSS 24,701.6 MiB；编译与加载阶段占大部分耗时，不能直接据此推算训练吞吐。
 - 完整短测保留正式 batch size 256，只缩短 episode／更新预算；修复短测初始 replay 容量为 0 的边界。作业记录权重校验清单，并分别累计训练／评估的环境步数与 chunk 数。
 - `doctor` 已确认依赖与所有模块导入通过；源码检查改为核对项目环境脚本选定的固定工作目录。共享 editable 安装仍指向安装工作目录，作业通过 PYTHONPATH 显式绑定当前固定目录，避免修改运行中作业。
 - 新增日志与执行包装；保留原 SAC 损失和模型采样逻辑。修复更新预算越界和末步重复保存，增加显式最终保存、RNG 存储、参数变化／冻结 VLA 输出检查。
