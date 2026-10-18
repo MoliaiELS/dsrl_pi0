@@ -1,11 +1,16 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('doctor', 'install-env')]
+    [ValidateSet('doctor', 'install-env', 'sync', 'env', 'smoke', 'eval', 'train', 'status', 'logs')]
     [string]$Command = 'doctor',
-    [string]$ConfigPath = ''
+    [Parameter(Position=1)][string]$JobId='',
+    [string]$ConfigPath = '', [string]$Commit='', [int]$Seed=0,
+    [string]$ExperimentConfig='configs/libero_baseline.json',
+    [string]$SmokeJobId='', [string]$BaseJobId='', [string]$RestorePath=''
 )
 $ErrorActionPreference = 'Stop'
+& (Join-Path $PSScriptRoot 'remote_jobs.ps1') @PSBoundParameters
+exit
 if (-not $ConfigPath) {
     $ConfigPath = Join-Path $PSScriptRoot 'remote.json'
 }

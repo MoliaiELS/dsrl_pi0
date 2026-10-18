@@ -6,6 +6,7 @@ xla_flags += ' --xla_gpu_triton_gemm_any=True'
 os.environ['XLA_FLAGS'] = xla_flags
 
 import pathlib, copy
+import random
 
 import jax
 from jaxrl2.agents.pixel_sac.pixel_sac_learner import PixelSACLearner
@@ -33,7 +34,7 @@ from openpi.policies import policy_config
 from openpi.shared import download
 
 home_dir = os.environ['HOME']
-compilation_cache.initialize_cache(os.path.join(home_dir, 'jax_compilation_cache'))
+compilation_cache.initialize_cache(os.environ.get('JAX_COMPILATION_CACHE_DIR', os.path.join(home_dir, 'jax_compilation_cache')))
 
 def _get_libero_env(task, resolution, seed):
     """Initializes and returns the LIBERO environment, along with the task description."""
@@ -77,6 +78,8 @@ class DummyEnv(gym.ObservationWrapper):
 
 
 def main(variant):
+    np.random.seed(variant.seed)
+    random.seed(variant.seed)
     devices = jax.local_devices()
     num_devices = len(devices)
     assert variant.batch_size % num_devices == 0
@@ -102,7 +105,7 @@ def main(variant):
     else:
         expname = create_exp_name(variant.prefix, seed=variant.seed)
    
-    outputdir = os.path.join(os.environ['EXP'], expname)
+    outputdir = variant.get('outputdir') or os.path.join(os.environ['EXP'], expname)
     variant.outputdir = outputdir
     if not os.path.exists(outputdir):
         os.makedirs(outputdir)
@@ -110,14 +113,14 @@ def main(variant):
     
     if variant.env == 'libero':
         benchmark_dict = benchmark.get_benchmark_dict()
-        task_suite = benchmark_dict["libero_90"]()
-        task_id = 57
+        task_suite = benchmark_dict[variant.get('task_suite', 'libero_90')]()
+        task_id = variant.get('task_id', 57)
         task = task_suite.get_task(task_id)
         env, task_description = _get_libero_env(task, 256, variant.seed)
         eval_env = env
         variant.task_description = task_description
         variant.env_max_reward = 1
-        variant.max_timesteps = 400
+        variant.max_timesteps = variant.get('max_timesteps', 400)
     elif variant.env == 'aloha_cube':
         from gymnasium.envs.registration import register
         register(
@@ -135,7 +138,7 @@ def main(variant):
 
     group_name = variant.prefix + '_' + variant.launch_group_id
     wandb_output_dir = tempfile.mkdtemp()
-    wandb_logger = WandBLogger(variant.prefix != '', variant, variant.wandb_project, experiment_id=expname, output_dir=wandb_output_dir, group_name=group_name)
+    wandb_logger = variant.get('run_logger') or WandBLogger(variant.prefix != '', variant, variant.wandb_project, experiment_id=expname, output_dir=wandb_output_dir, group_name=group_name)
 
     dummy_env = DummyEnv(variant)
     sample_obs = add_batch_dim(dummy_env.observation_space.sample())
@@ -146,19 +149,50 @@ def main(variant):
 
     if variant.env == 'libero':
         config = openpi_config.get_config("pi0_libero")
-        checkpoint_dir = download.maybe_download("s3://openpi-assets/checkpoints/pi0_libero")
+        checkpoint_dir = download.maybe_download(os.environ.get('DSRL_MODEL_PATH', 's3://openpi-assets/checkpoints/pi0_libero'))
     elif variant.env == 'aloha_cube':
         config = openpi_config.get_config("pi0_aloha_sim")
         checkpoint_dir = download.maybe_download("s3://openpi-assets/checkpoints/pi0_aloha_sim")
     else:
         raise NotImplementedError()
+    wandb_logger.log({'phase': 'loading_frozen_vla', 'model_path': str(checkpoint_dir)}, 0)
     agent_dp = policy_config.create_trained_policy(config, checkpoint_dir)
     print("Loaded pi0 policy from %s", checkpoint_dir)
+    wandb_logger.log({'phase': 'frozen_vla_loaded', 'task': variant.task_description}, 0)
+    from examples.train_utils_sim import perform_control_eval, obs_to_pi_zero_input
+    if variant.get('mode') == 'base':
+        perform_control_eval(None, eval_env, 0, variant, wandb_logger, agent_dp)
+        env.close()
+        return
     agent = PixelSACLearner(variant.seed, sample_obs, sample_action, **kwargs)
+    if variant.get('restore_path'):
+        agent.restore_checkpoint(variant.restore_path)
+    if variant.get('mode') == 'eval':
+        if not variant.get('restore_path'):
+            raise ValueError('Evaluation requires --restore-path')
+        perform_control_eval(agent, eval_env, 1, variant, wandb_logger, agent_dp)
+        env.close()
+        return
+    reference = None
+    if variant.get('mode') == 'smoke':
+        observation = obs_to_pi_zero_input(env.reset(), variant)
+        noise = jax.numpy.zeros((1, 50, 32), dtype=jax.numpy.float32)
+        reference = (observation, noise, agent_dp.infer(observation, noise=noise)['actions'])
+        assert np.isfinite(reference[2]).all()
+        from PIL import Image
+        Image.fromarray(observation['observation/image']).save(os.path.join(outputdir, 'smoke-camera.png'))
 
     online_buffer_size = variant.max_steps  // variant.multi_grad_step
     online_replay_buffer = ReplayBuffer(dummy_env.observation_space, dummy_env.action_space, int(online_buffer_size))
     replay_buffer = online_replay_buffer
     replay_buffer.seed(variant.seed)
     trajwise_alternating_training_loop(variant, agent, env, eval_env, online_replay_buffer, replay_buffer, wandb_logger, shard_fn=shard_fn, agent_dp=agent_dp)
- 
+    if reference is not None:
+        after = agent_dp.infer(reference[0], noise=reference[1])['actions']
+        np.testing.assert_allclose(reference[2], after, rtol=1e-5, atol=1e-5)
+        expected = agent.eval_actions(sample_obs)
+        recovered = PixelSACLearner(variant.seed + 1, sample_obs, sample_action, **kwargs)
+        recovered.restore_checkpoint(outputdir)
+        np.testing.assert_allclose(expected, recovered.eval_actions(sample_obs), rtol=1e-5, atol=1e-5)
+        wandb_logger.log({'smoke/frozen_vla_unchanged': True, 'smoke/checkpoint_restored': True}, variant.max_steps)
+    env.close()

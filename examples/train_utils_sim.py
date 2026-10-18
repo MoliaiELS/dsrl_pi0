@@ -96,16 +96,25 @@ def trajwise_alternating_training_loop(variant, agent, env, eval_env, online_rep
 
     total_env_steps = 0
     i = 0
+    before_actor = None
+    if variant.get('mode') == 'smoke':
+        before_actor = jax.tree_util.tree_map(lambda x: np.array(x), agent._actor.params)
     wandb_logger.log({'num_online_samples': 0}, step=i)
     wandb_logger.log({'num_online_trajs': 0}, step=i)
     wandb_logger.log({'env_steps': 0}, step=i)
     
     with tqdm(total=variant.max_steps, initial=0) as pbar:
-        while i <= variant.max_steps:
+        while i < variant.max_steps:
             traj = collect_traj(variant, agent, env, i, agent_dp)
             traj_id = online_replay_buffer._traj_counter
             add_online_data_to_buffer(variant, traj, online_replay_buffer)
             total_env_steps += traj['env_steps']
+            wandb_logger.log({'phase': 'collecting' if i == 0 else 'training',
+                              'env_steps': total_env_steps,
+                              'chunk_transitions': len(online_replay_buffer),
+                              'episodes': traj_id + 1,
+                              'episode_return (exploration)': traj['episode_return'],
+                              'is_success (exploration)': int(traj['is_success'])}, i)
             print('online buffer timesteps length:', len(online_replay_buffer))
             print('online buffer num traj:', traj_id + 1)
             print('total env steps:', total_env_steps)
@@ -116,7 +125,7 @@ def trajwise_alternating_training_loop(variant, agent, env, eval_env, online_rep
                 num_gradsteps = len(traj["rewards"])*variant.multi_grad_step
 
             if len(online_replay_buffer) > variant.start_online_updates:
-                for _ in range(num_gradsteps):
+                for _ in range(min(num_gradsteps, variant.max_steps - i)):
                     # perform first visualization before updating
                     if i == 0:
                         print('performing evaluation for initial checkpoint')
@@ -128,6 +137,9 @@ def trajwise_alternating_training_loop(variant, agent, env, eval_env, online_rep
                     # online perform update once we have some amount of online trajs
                     batch = next(replay_buffer_iterator)
                     update_info = agent.update(batch)
+                    if variant.get('mode') == 'smoke':
+                        for name, value in jax.device_get(update_info).items():
+                            assert np.isfinite(value).all(), f'Nonfinite update: {name}'
 
                     pbar.update()
                     i += 1
@@ -158,6 +170,16 @@ def trajwise_alternating_training_loop(variant, agent, env, eval_env, online_rep
 
                     if variant.checkpoint_interval != -1 and i % variant.checkpoint_interval == 0:
                         agent.save_checkpoint(variant.outputdir, i, variant.checkpoint_interval)
+
+    agent.save_checkpoint(variant.outputdir, i, variant.checkpoint_interval)
+    wandb_logger.log({'phase': 'training_finished', 'env_steps': total_env_steps,
+                      'chunk_transitions': len(online_replay_buffer),
+                      'checkpoint': variant.outputdir}, i)
+    if before_actor is not None:
+        delta = sum(float(np.sum((np.asarray(a) - b) ** 2)) for a, b in zip(
+            jax.tree_util.tree_leaves(agent._actor.params), jax.tree_util.tree_leaves(before_actor))) ** 0.5
+        assert delta > 0, 'Actor parameters did not update'
+        wandb_logger.log({'smoke/actor_parameter_delta_l2': delta}, i)
 
             
 def add_online_data_to_buffer(variant, traj, online_replay_buffer):
@@ -376,7 +398,10 @@ def perform_control_eval(agent, env, i, variant, wandb_logger, agent_dp=None):
                 
         print(f'Rollout {rollout_id} : {episode_return=}, Success: {is_success}')
         video = np.stack(image_list).transpose(0, 3, 1, 2)
-        wandb_logger.log({f'eval_video/{rollout_id}': wandb.Video(video, fps=50)}, step=i)
+        wandb_logger.log({f'eval_video/{rollout_id}': wandb.Video(video, fps=50, format='mp4')}, step=i)
+        wandb_logger.log({'evaluation/rollout_id': rollout_id, 'evaluation/episode_success': bool(is_success),
+                          'evaluation/episode_return': float(episode_return),
+                          'evaluation/episode_env_steps': t + 1}, step=i)
 
 
     success_rate = np.mean(np.array(success_rates))

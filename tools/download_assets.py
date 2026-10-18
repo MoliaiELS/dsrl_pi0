@@ -9,7 +9,7 @@ import xml.etree.ElementTree as ET
 
 import requests
 
-SOURCE = 'https://openpi-assets.s3.amazonaws.com'
+SOURCE = os.environ.get('DSRL_ASSET_HTTP_SOURCE', 'https://openpi-assets.s3.us-west-2.amazonaws.com')
 PREFIX = 'checkpoints/pi0_libero/'
 
 
@@ -24,8 +24,15 @@ def main():
     entries = []
     params = {'list-type': '2', 'prefix': PREFIX, 'max-keys': 1000}
     while True:
-        response = requests.get(SOURCE, params=params, timeout=(20, 120))
-        response.raise_for_status()
+        for attempt in range(4):
+            try:
+                response = requests.get(SOURCE, params=params, timeout=(15, 120))
+                response.raise_for_status()
+                break
+            except requests.RequestException:
+                if attempt == 3:
+                    raise
+                time.sleep(2 ** attempt)
         doc = ET.fromstring(response.content)
         ns = {'s': 'http://s3.amazonaws.com/doc/2006-03-01/'}
         for item in doc.findall('s:Contents', ns):
