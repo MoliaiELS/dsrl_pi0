@@ -4,6 +4,7 @@ import importlib.metadata as metadata
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import traceback
@@ -28,7 +29,7 @@ def main():
                   local_logging=True, config_path=str(Path(args.config).resolve()))
     config['discount'] = config['train_kwargs']['discount']
     if args.mode == 'smoke':
-        config.update(max_steps=16, batch_size=16, start_online_updates=1,
+        config.update(max_steps=16, start_online_updates=1,
                       max_timesteps=40, eval_episodes=1, eval_interval=10000,
                       checkpoint_interval=16, log_interval=1)
     if args.mode in ['base', 'eval']:
@@ -36,6 +37,8 @@ def main():
     write_json(directory / 'config.json', config)
     versions = {d.metadata['Name']: d.version for d in metadata.distributions()}
     write_json(directory / 'dependencies.json', versions)
+    shutil.copy2(Path(os.environ['DSRL_MODEL_PATH']) / 'download_manifest.json',
+                 directory / 'model_manifest.json')
     write_json(directory / 'run.json', {
         'commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(),
         'submodules': subprocess.check_output(['git', 'submodule', 'status'], text=True),
@@ -43,7 +46,8 @@ def main():
         'hostname': os.uname().nodename, 'python': sys.executable,
         'cuda_visible_devices': os.environ.get('CUDA_VISIBLE_DEVICES'),
         'model_source': 's3://openpi-assets/checkpoints/pi0_libero',
-        'model_path': os.environ['DSRL_MODEL_PATH'], 'controller_resume': 'weights and optimizer only',
+        'model_path': os.environ['DSRL_MODEL_PATH'],
+        'controller_resume': 'controller weights, optimizer and RNG; no replay buffer or environment state',
     })
     logger = RunLogger(directory)
     config['run_logger'] = logger

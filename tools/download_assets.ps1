@@ -24,15 +24,20 @@ $verified=New-Object System.Collections.ArrayList
 while ($pending.Count -or $running.Count) {
     while ($pending.Count -and $running.Count -lt 4) {
         $item=$pending.Dequeue()
-        $arguments='-sSfL --connect-timeout 15 --max-time 7200 --retry 4 -C - --dump-header "'+$item.Destination+'.headers" -o "'+$item.Destination+'" "'+$DownloadBase+'/'+$item.Entry.Key+'"'
-        $item.Process=Start-Process -FilePath curl.exe -ArgumentList $arguments -WindowStyle Hidden -PassThru
+        $item.Process=$null
+        if (-not (Test-Path -LiteralPath $item.Destination) -or (Get-Item -LiteralPath $item.Destination).Length -ne [long]$item.Entry.Size) {
+            $arguments='-sSfL --connect-timeout 15 --max-time 7200 --retry 4 --dump-header "'+$item.Destination+'.headers" -o "'+$item.Destination+'" "'+$DownloadBase+'/'+$item.Entry.Key+'"'
+            $item.Process=Start-Process -FilePath curl.exe -ArgumentList $arguments -WindowStyle Hidden -PassThru
+        }
         [void]$running.Add($item)
         Write-Output ('DOWNLOADING '+$item.Relative)
     }
     foreach ($item in @($running.ToArray())) {
-        if (-not $item.Process.HasExited) { continue }
-        $item.Process.WaitForExit()
-        if ($item.Process.ExitCode -ne 0) { throw ('Download failed '+$item.Relative) }
+        if ($item.Process) {
+            if (-not $item.Process.HasExited) { continue }
+            $item.Process.WaitForExit()
+            if ($item.Process.ExitCode -ne 0) { throw ('Download failed '+$item.Relative) }
+        }
         $file=Get-Item -LiteralPath $item.Destination
         if ($file.Length -ne [long]$item.Entry.Size) { throw ('Size mismatch '+$item.Relative) }
         $sha=(Get-FileHash -Algorithm SHA256 -LiteralPath $item.Destination).Hash.ToLowerInvariant()

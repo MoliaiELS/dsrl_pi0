@@ -67,13 +67,13 @@ def main():
             failures.append(module)
             print(f'FAIL {module}: import timed out', flush=True)
 
-    # Check each editable package's actual source, even when invoked elsewhere.
+    # Jobs select immutable sources through remote-env.sh. Shared editables may
+    # point to the installation checkout and must not be rebound during a run.
     expected = {'openpi': str(root / 'openpi/src/openpi'),
                 'openpi_client': str(root / 'openpi/packages/openpi-client/src/openpi_client'),
                 'jaxrl2': str(root / 'jaxrl2'),
                 'libero.libero': str(root / 'LIBERO/libero/libero')}
     source_env = dict(child_env)
-    source_env.pop('PYTHONPATH', None)
     code = (
         'import importlib, json; from pathlib import Path; '
         f'expected = {expected!r}; '
@@ -86,7 +86,7 @@ def main():
         cwd=os.environ['TMPDIR'], stdin=subprocess.DEVNULL,
         capture_output=True, text=True, timeout=90,
     )
-    print('Installed sources without PYTHONPATH:', result.stdout, flush=True)
+    print('Active project sources:', result.stdout, flush=True)
     if result.returncode:
         failures.append('editable:sources')
         print(result.stderr, flush=True)

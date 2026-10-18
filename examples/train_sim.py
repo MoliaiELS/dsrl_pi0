@@ -182,7 +182,7 @@ def main(variant):
         from PIL import Image
         Image.fromarray(observation['observation/image']).save(os.path.join(outputdir, 'smoke-camera.png'))
 
-    online_buffer_size = variant.max_steps  // variant.multi_grad_step
+    online_buffer_size = max(1, variant.max_steps // variant.multi_grad_step)
     online_replay_buffer = ReplayBuffer(dummy_env.observation_space, dummy_env.action_space, int(online_buffer_size))
     replay_buffer = online_replay_buffer
     replay_buffer.seed(variant.seed)

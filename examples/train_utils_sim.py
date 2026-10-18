@@ -329,6 +329,10 @@ def perform_control_eval(agent, env, i, variant, wandb_logger, agent_dp=None):
     highest_rewards = []
     success_rates = []
     episode_lens = []
+    latest = getattr(wandb_logger, 'latest', {})
+    eval_env_steps = int(latest.get('evaluation/total_env_steps', 0))
+    eval_chunks = int(latest.get('evaluation/total_chunks', 0))
+    eval_episodes = int(latest.get('evaluation/total_episodes', 0))
 
     rng = jax.random.PRNGKey(variant.seed+456)
 
@@ -389,6 +393,9 @@ def perform_control_eval(agent, env, i, variant, wandb_logger, agent_dp=None):
 
         # per episode
         episode_lens.append(t + 1)
+        eval_env_steps += t + 1
+        eval_chunks += math.ceil((t + 1) / query_frequency)
+        eval_episodes += 1
         rewards = np.array(rewards)
         episode_return = np.sum(rewards)
         episode_returns.append(episode_return)
@@ -402,7 +409,10 @@ def perform_control_eval(agent, env, i, variant, wandb_logger, agent_dp=None):
         wandb_logger.log({f'eval_video/{rollout_id}': wandb.Video(video, fps=50, format='mp4')}, step=i)
         wandb_logger.log({'evaluation/rollout_id': rollout_id, 'evaluation/episode_success': bool(is_success),
                           'evaluation/episode_return': float(episode_return),
-                          'evaluation/episode_env_steps': t + 1}, step=i)
+                          'evaluation/episode_env_steps': t + 1,
+                          'evaluation/total_env_steps': eval_env_steps,
+                          'evaluation/total_chunks': eval_chunks,
+                          'evaluation/total_episodes': eval_episodes}, step=i)
 
 
     success_rate = np.mean(np.array(success_rates))
