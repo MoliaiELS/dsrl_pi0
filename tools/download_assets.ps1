@@ -62,7 +62,8 @@ while ($pending.Count -or $running.Count) {
     }
     if ($running.Count) { Start-Sleep -Seconds 1 }
 }
-$manifest=@{source='s3://openpi-assets/checkpoints/pi0_libero';download_base=$DownloadBase;files=$verified.ToArray();total_bytes=($verified | Measure-Object -Property size -Sum).Sum}
+$totalBytes=($verified | ForEach-Object { $_.size } | Measure-Object -Sum).Sum
+$manifest=@{source='s3://openpi-assets/checkpoints/pi0_libero';download_base=$DownloadBase;files=$verified.ToArray();total_bytes=$totalBytes}
 $manifestPath=Join-Path $stage 'download_manifest.json'
 [IO.File]::WriteAllText($manifestPath,($manifest | ConvertTo-Json -Depth 5),(New-Object Text.UTF8Encoding($false)))
 Write-Output ('DOWNLOAD_COMPLETE '+$stage)

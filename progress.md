@@ -29,6 +29,16 @@
 | Base VLA 评估 | 待完成 | 原始高斯先验，固定配置与 seed |
 | seed 0 正式训练 | 未提交 | 500,000 梯度更新；chunk 和环境步数另计 |
 
+## 固定协议与资源
+
+- 候选运行 commit：`c227be8c48353115b7c5de0b3e99fb17d388462f`，独立 worktree；后续文档提交不改变已提交作业代码。
+- SAC：batch 256，UTD 20，warmup 500 个 chunk（原实现要求 buffer 长度 > 500）；每个 chunk 最多执行 20 个环境步，每回合最多 400 步。
+- 训练预算：500,000 次梯度更新，每 10,000 次更新评估 10 回合，每 50,000 次保存。原始 Base 先独立评估 100 回合；最终控制器另作 100 回合评估。
+- 分别记录梯度更新、训练 chunk／环境步和评估 chunk／环境步；warmup 交互计入训练交互。保留原实现的初始采集噪声和 Base 评估噪声差异。
+- Slurm：GPU 分区，iadc-acco/phd，单张 RTX 4090、8 CPU，排除 4090node1；正式训练时间上限 24 小时。集群未配置可调度内存容量，省略内存资源请求，以进程 RSS 实测记录占用。
+- `resources.jsonl` 每 30 秒记录当前 Python 进程 CPU/RSS、GPU 显存及所在 GPU 的利用率／功耗／温度；GPU 利用率是整卡采样，不能当作进程独占指标。
+- 官方 checkpoint 19 文件共 12,014,131,888 字节；本地完整下载已通过 GCS MD5 与原 S3 ETag 来源检查，远端继续核对原 S3 multipart ETag。tokenizer SHA256：`8986bb4f423f07f8c7f70d0dbe3526fb2316056c17bae71b1ea975e77a168fc6`。
+
 ## 运行记录
 
 - `18041`：渲染探针，commit `b61d4ac`，4090node2，36 秒，COMPLETED/0；结果 `runs/job-18041/environment.png`。
