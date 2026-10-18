@@ -3,7 +3,7 @@
 # Retains the original remote bash.sh's PYTHONPATH, XLA and EGL setup.
 export DSRL_REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 export DSRL_DATA_ROOT="${DSRL_DATA_ROOT:-/mnt/slurmfs-4090node3/user_data/yguo704/dsrl_pi0}"
-export PYTHONPATH="$DSRL_REPO_ROOT:$DSRL_REPO_ROOT/LIBERO${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH="$DSRL_REPO_ROOT:$DSRL_REPO_ROOT/LIBERO:$DSRL_REPO_ROOT/openpi/src:$DSRL_REPO_ROOT/openpi/packages/openpi-client/src${PYTHONPATH:+:$PYTHONPATH}"
 export XLA_PYTHON_CLIENT_PREALLOCATE=false
 export MUJOCO_GL=egl
 export PYOPENGL_PLATFORM=egl

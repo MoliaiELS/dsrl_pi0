@@ -1,0 +1,19 @@
+{
+  "env": "libero", "task_suite": "libero_90", "task_id": 57,
+  "model_config": "pi0_libero", "seed": 0,
+  "batch_size": 256, "max_steps": 500000, "max_timesteps": 400,
+  "query_freq": 20, "multi_grad_step": 20, "start_online_updates": 500,
+  "eval_interval": 10000, "eval_episodes": 10, "log_interval": 500,
+  "checkpoint_interval": 50000, "resize_image": 64, "add_states": 1,
+  "train_kwargs": {
+    "actor_lr": 0.0001, "critic_lr": 0.0003, "temp_lr": 0.0003,
+    "hidden_dims": [128, 128, 128], "cnn_features": [32, 32, 32, 32],
+    "cnn_strides": [2, 1, 1, 1], "cnn_padding": "VALID", "latent_dim": 50,
+    "discount": 0.999, "tau": 0.005, "critic_reduction": "mean",
+    "dropout_rate": 0.0, "aug_next": 1, "use_bottleneck": true,
+    "encoder_type": "small", "encoder_norm": "group",
+    "use_spatial_softmax": true, "softmax_temperature": -1,
+    "target_entropy": "auto", "num_qs": 10, "action_magnitude": 1.0,
+    "num_cameras": 1
+  }
+}

@@ -16,4 +16,5 @@ jax-cuda12-pjrt==0.5.0
 tensorflow==2.19.0
 tf-keras==2.19.0
 torch==2.6.0+cpu
-mujoco==2.3.7
+# LIBERO's upstream run_libero.sh uses 3.3.1; ALOHA needs a separate runtime.
+mujoco==3.3.1
