@@ -285,7 +285,8 @@ class PixelSACLearner(Agent):
             'critic': self._critic,
             'target_critic_params': self._target_critic_params,
             'actor': self._actor,
-            'temp': self._temp
+            'temp': self._temp,
+            'rng': self._rng,
         }
         return save_dict
 
@@ -296,6 +297,7 @@ class PixelSACLearner(Agent):
         self._critic = output_dict['critic']
         self._target_critic_params = output_dict['target_critic_params']
         self._temp = output_dict['temp']
+        self._rng = output_dict.get('rng', self._rng)
         print('restored from ', dir)
         
     

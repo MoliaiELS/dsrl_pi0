@@ -23,4 +23,4 @@ for _ in range(5):
 Image.fromarray(obs['agentview_image'][::-1, ::-1]).save(directory / 'environment.png')
 print('RENDER_OK', obs['agentview_image'].shape, list(obs), flush=True)
 env.close()
-(directory / 'SUCCESS.json').write_text(json.dumps({'env_probe': True, 'mujoco': mujoco.__version__}))
+(directory / 'render_result.json').write_text(json.dumps({'env_probe': True, 'mujoco': mujoco.__version__}))

@@ -45,6 +45,7 @@ for name in ['jaxrl2', 'libero.libero', 'openpi', 'openpi_client']:
 PY
 if [[ "$mode" == 'env' ]]; then
     python -u tools/env_probe.py "$run_dir"
+    python -u tools/sac_probe.py "$run_dir"
 else
     test -f "$DSRL_MODEL_PATH/download_manifest.json"
     python -u -m tools.libero_run --mode "$mode" --config "$config" --seed "$seed" \

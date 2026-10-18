@@ -171,7 +171,8 @@ def trajwise_alternating_training_loop(variant, agent, env, eval_env, online_rep
                     if variant.checkpoint_interval != -1 and i % variant.checkpoint_interval == 0:
                         agent.save_checkpoint(variant.outputdir, i, variant.checkpoint_interval)
 
-    agent.save_checkpoint(variant.outputdir, i, variant.checkpoint_interval)
+    if variant.checkpoint_interval == -1 or i % variant.checkpoint_interval:
+        agent.save_checkpoint(variant.outputdir, i, max(1, variant.checkpoint_interval))
     wandb_logger.log({'phase': 'training_finished', 'env_steps': total_env_steps,
                       'chunk_transitions': len(online_replay_buffer),
                       'checkpoint': variant.outputdir}, i)
