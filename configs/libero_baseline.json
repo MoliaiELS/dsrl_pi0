@@ -4,7 +4,7 @@
   "batch_size": 256, "max_steps": 500000, "max_timesteps": 400,
   "query_freq": 20, "multi_grad_step": 20, "start_online_updates": 500,
   "eval_interval": 10000, "eval_episodes": 10, "log_interval": 500,
-  "checkpoint_interval": 50000, "resize_image": 64, "add_states": 1,
+  "checkpoint_interval": 50000, "resize_image": 64, "add_states": 1, "num_cameras": 1,
   "train_kwargs": {
     "actor_lr": 0.0001, "critic_lr": 0.0003, "temp_lr": 0.0003,
     "hidden_dims": [128, 128, 128], "cnn_features": [32, 32, 32, 32],

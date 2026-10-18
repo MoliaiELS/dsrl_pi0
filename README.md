@@ -70,7 +70,9 @@ Connection, Conda, code and storage paths are in `tools/remote.json`. Every call
 initializes Conda and sources `tools/remote-env.sh`. Use that script for manual
 sessions as well; the repository's original `bash.sh` launches experiments.
 The installation is validated in the separate `dsrl_pi0-envfix` worktree;
-editable installs must point to that directory. Original remote files are retained.
+shared editable installs point to that directory. Jobs explicitly select an
+immutable worktree through `PYTHONPATH`; their imported source paths are checked.
+Original remote files are retained.
 
 `constraints/remote.txt` keeps TensorFlow 2.19 / protobuf 5.29.6 and compatible
 Google/gRPC packages together. Install all four editable projects in one pip
@@ -92,6 +94,36 @@ submodule versions and logs are saved under
 `$DSRL_DATA_ROOT/logs/environment/`; data and caches stay outside Git.
 
 ## Training (Simulation)
+
+### IADC LIBERO baseline
+
+`progress.md` records current job IDs and verified results. The baseline uses
+LIBERO-90 task 57, the frozen official `pi0_libero` checkpoint and the original
+DSRL-SAC configuration in `configs/libero_baseline.json`. `max_steps` counts
+gradient updates; training and evaluation physics steps/chunks are logged separately.
+
+Commit and push changes, then use these commands from Windows (add the
+process-local `-ExecutionPolicy Bypass` argument if required):
+
+```powershell
+.\tools\remote.ps1 sync
+.\tools\remote.ps1 smoke
+.\tools\remote.ps1 eval
+.\tools\remote.ps1 train -Seed 0 -SmokeJobId <smoke_job> -BaseJobId <base_job>
+.\tools\remote.ps1 status <job_id>
+.\tools\remote.ps1 logs <job_id>
+```
+
+Pass the same full `-Commit` SHA to each command when documentation HEAD has
+changed. Formal training requires successful integration smoke and Base jobs at
+that commit. Slurm settings and paths are centralized in `tools/remote.json`.
+Weights/tokenizer must already be cached and verified; jobs run offline.
+
+Outputs are under `$DSRL_DATA_ROOT/runs/job-<id>`: configuration, source/model
+provenance, dependencies, metrics, videos, checkpoints and resource samples.
+Checkpoint restore includes controller weights, optimizer and RNG; it does not
+restore replay buffers or simulator state for exact continuation.
+
 Libero
 ```
 bash examples/scripts/run_libero.sh
