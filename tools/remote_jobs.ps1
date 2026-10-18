@@ -47,6 +47,7 @@ if ($Command -in @('status','logs')) {
             'test -z "$(git status --porcelain --untracked-files=no)"',
             ('git -c protocol.file.allow=always -c '+(Quote-Bash ('submodule.LIBERO.url='+$config.RepoDir+'/LIBERO'))+' -c '+(Quote-Bash ('submodule.openpi.url='+$config.RepoDir+'/openpi'))+' submodule update --init'),
             ('git -C openpi -c protocol.file.allow=always -c '+(Quote-Bash ('submodule.third_party/aloha.url='+$config.RepoDir+'/openpi/third_party/aloha'))+' -c '+(Quote-Bash ('submodule.third_party/libero.url='+$config.RepoDir+'/openpi/third_party/libero'))+' submodule update --init'),
+            'git -C openpi submodule init',
             'git rev-parse HEAD', 'git submodule status --recursive', 'bash -n tools/job.sh tools/remote-env.sh',
             'python -m compileall -q tools examples jaxrl2'
         )

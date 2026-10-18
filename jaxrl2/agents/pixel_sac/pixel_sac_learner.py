@@ -292,7 +292,10 @@ class PixelSACLearner(Agent):
 
     def restore_checkpoint(self, dir):
         assert pathlib.Path(dir).exists(), f"Checkpoint {dir} does not exist."
-        output_dict = checkpoints.restore_checkpoint(dir, self._save_dict)
+        checkpoint = checkpoints.latest_checkpoint(dir, prefix='checkpoint')
+        if checkpoint is None:
+            raise FileNotFoundError(f'No controller checkpoint found in {dir}')
+        output_dict = checkpoints.restore_checkpoint(dir, self._save_dict, prefix='checkpoint')
         self._actor = output_dict['actor']
         self._critic = output_dict['critic']
         self._target_critic_params = output_dict['target_critic_params']

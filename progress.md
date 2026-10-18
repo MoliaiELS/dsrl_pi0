@@ -22,14 +22,19 @@
 | 工作 | 状态 | 证据／待完成事项 |
 | --- | --- | --- |
 | 核对远端与 Slurm | 已检查 | 分区 GPU，账户 iadc-acco，QOS phd；单卡 4090，长作业排除登录节点 |
-| LIBERO 运行版本锁 | 进行中 | 原安装 MuJoCo 2.3.7，官方 LIBERO 入口使用 3.3.1，需受控验证 |
-| 权重与 tokenizer 缓存 | 待完成 | 只下载官方来源，记录文件大小与 SHA256 |
-| 固定入口与本地指标／视频 | 进行中 | sync、smoke、eval、train、status、logs |
+| LIBERO 运行版本锁 | 已验证渲染 | MuJoCo 3.3.1、gym-aloha 0.1.5、dm-control 1.0.15；pip check 通过；job 18041 在 4090node2 渲染通过 |
+| 权重与 tokenizer 缓存 | 下载中 | tokenizer 官方 MD5/SHA256 已核对；checkpoint 19 文件、12,014,131,888 字节；从官方 GCS 同内容镜像并行下载，校验原 S3 multipart ETag |
+| 固定入口与本地指标／视频 | 已实现 | sync、env、smoke、eval、train、status、logs；正式提交要求短测和 Base 作业成功 |
 | 模型／动作／更新／保存恢复短测试 | 待完成 | 必须通过后才正式训练 |
 | Base VLA 评估 | 待完成 | 原始高斯先验，固定配置与 seed |
 | seed 0 正式训练 | 未提交 | 500,000 梯度更新；chunk 和环境步数另计 |
 
 ## 运行记录
+
+- `18041`：渲染探针，commit `b61d4ac`，4090node2，36 秒，COMPLETED/0；结果 `runs/job-18041/environment.png`。
+- `18042`：渲染 + SAC 更新／恢复探针，commit `92da8e3`，4090node2，FAILED/1。3 次更新均有限，恢复测试发现原保存前缀 `checkpoint` 与恢复默认前缀 `checkpoint_` 不一致；修复后复测，不把该失败称为训练成功。
+- 新增日志与执行包装；保留原 SAC 损失和模型采样逻辑。修复更新预算越界和末步重复保存，增加显式最终保存、RNG 存储、参数变化／冻结 VLA 输出检查。
+- 当前 checkpoint 仅支持控制器权重、优化器与控制器 RNG 恢复；尚不支持 replay buffer／环境随机状态的完整续训。
 
 每次运行应记录：commit、子模块、完整配置、seed、模型清单、依赖、Slurm job ID、节点、结果目录、GPU/CPU/内存采样、训练与评估指标。
 
