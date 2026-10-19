@@ -52,7 +52,7 @@ if resources.exists():
 print(json.dumps(result,indent=2))
 '@
         $script += @(
-            ('squeue -j '+$JobId+' -o "%.18i %.10T %.12M %.20R"'),
+            ('if ! squeue -j '+$JobId+' -o "%.18i %.10T %.12M %.20R"; then echo "Active queue lookup unavailable; checking accounting and saved run records."; fi'),
             ('sacct -j '+$JobId+' --format=JobID,JobName,State,ExitCode,Elapsed,AllocTRES -P'),
             ('python3 -c '+(Quote-Bash $summary)+' "$record"')
         )
