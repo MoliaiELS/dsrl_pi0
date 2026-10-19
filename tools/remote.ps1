@@ -6,7 +6,8 @@ param(
     [Parameter(Position=1)][string]$JobId='',
     [string]$ConfigPath = '', [string]$Commit='', [int]$Seed=0,
     [string]$ExperimentConfig='configs/libero_baseline.json',
-    [string]$SmokeJobId='', [string]$BaseJobId='', [string]$RestorePath=''
+    [string]$SmokeJobId='', [string]$BaseJobId='', [string]$RestorePath='',
+    [string]$DependencyJobId=''
 )
 $ErrorActionPreference = 'Stop'
 & (Join-Path $PSScriptRoot 'remote_jobs.ps1') @PSBoundParameters

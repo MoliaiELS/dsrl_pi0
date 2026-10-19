@@ -7,9 +7,14 @@ param(
     [string]$ConfigPath='', [string]$Commit='', [int]$Seed=0,
     [string]$ExperimentConfig='configs/libero_baseline.json',
     [string]$SmokeJobId='', [string]$BaseJobId='', [string]$RestorePath='',
+    [string]$DependencyJobId='',
     [switch]$PrintScript
 )
 $ErrorActionPreference='Stop'
+if ($DependencyJobId) {
+    if ($DependencyJobId -notmatch '^\d+$') { throw 'DependencyJobId must be an explicit numeric job ID.' }
+    if ($Command -notin @('env','smoke','eval','train')) { throw 'Dependencies apply only to submitted jobs.' }
+}
 if (-not $ConfigPath) { $ConfigPath=Join-Path $PSScriptRoot 'remote.json' }
 $config=Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
 function Quote-Bash([string]$Value) { return "'"+$Value.Replace("'", "'\''")+"'" }
@@ -104,7 +109,11 @@ print(json.dumps(result,indent=2))
             ('--gres='+(Quote-Bash $config.Slurm.Gres)), ('--cpus-per-task='+$config.Slurm.Cpus),
             ('--exclude='+(Quote-Bash $config.Slurm.Exclude)), ('--time='+(Quote-Bash $limit)),
             ('--job-name='+(Quote-Bash ('dsrl-'+$mode+'-s'+$Seed))),
-            ('--output='+(Quote-Bash ($config.DataRoot+'/logs/slurm/%j.log'))),
+            ('--output='+(Quote-Bash ($config.DataRoot+'/logs/slurm/%j.log'))))
+        if ($DependencyJobId) {
+            $arguments += @(('--dependency=afterok:'+$DependencyJobId), '--kill-on-invalid-dep=yes')
+        }
+        $arguments += @(
             (Quote-Bash ($repo+'/tools/job.sh')), (Quote-Bash $repo),
             (Quote-Bash $config.CondaRoot), (Quote-Bash $config.CondaEnv),
             (Quote-Bash $config.DataRoot), (Quote-Bash $mode),
