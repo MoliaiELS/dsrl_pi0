@@ -1,17 +1,31 @@
 # DSRL π₀ / LIBERO 基线进度
 
-更新时间：2026-10-19 20:35（Asia/Shanghai）。本文件记录事实状态；提交成功不等于运行成功。
+更新时间：2026-10-19 21:30（Asia/Shanghai）。本文件记录事实状态；提交成功不等于运行成功。
 
-## 最新结果：seed 1 训练完成（2026-10-19 20:35）
+## 当前轮次：seed 1 终评与 seed 2（2026-10-19 21:03 启动）
+
+- 用户已授权：恢复 seed 1 最终 checkpoint 独立评估 100 回合，并提交 seed 2 训练及训练后的独立终评；seed 2 正式更新开始并通过早期检查后结束本次会话。
+- seed 1 终评 `18122` **已完成，COMPLETED/0、SUCCESS**：21:03:52–21:17:53，耗时 14:01；新进程从 `runs/job-18103` 恢复 checkpoint500000，**100/100 成功（100%）**，14,459 环境步、749 chunk，平均回合长度 144.59 步。无失败回合，不更新参数、不写入训练 replay；已核对 eval 模式、100 回合配置及没有 training 标量。日志中的 gradient_updates=1 仍只是学习后控制器的模式标记。汇总 `runs/job-18122/result_summary.json`，本地副本 `tmp/results-18122/`。
+- seed 2 训练 `18123` 已按 `afterok:18122` 自动启动，21:17:53 在 4090node2 进入 RUNNING；按原协议从头初始化 SAC，目标 500,000 次更新，无 restore_path。已核对三轮训练配置除 seed／输出目录外一致、依赖版本一致；jaxrl2／LIBERO／OpenPI／openpi_client 实际源码均来自固定 worktree。
+- **21:28 早期训练检查通过**：已核对 500／1,000／1,500 次实际梯度更新的 actor loss、critic loss、temperature 均有限，temperature 为正；全部已记录 training 标量未发现 NaN／Inf。检查快照为 1,500 更新、11,408 训练环境步、571 chunk、29 回合；末次 actor loss -5.61355、critic loss 0.000822929、temperature 0.662235，采集与更新均在推进。这仅是启动健康检查，不是收敛／终评结论。证据 `runs/job-18123/startup_check.json`，本地副本 `tmp/results-18123/`。
+- seed 2 warmup 为 10,208 环境步、511 chunk、26 回合；更新前的训练内评估另计 10 回合、3,492 环境步、176 chunk，成功 3/10。两类交互分别记录；已进入正式 SAC 更新阶段，不再只是冻结 VLA 采集。
+- seed 2 最近资源采样：显存约 9.0 GiB（已采样峰值 9,235 MiB），当前 RSS 约 7.1 GiB，启动 RSS 峰值 24,630.5 MiB（24.1 GiB）；单卡 4090、8 CPU，Slurm 分配 CUDA_VISIBLE_DEVICES=1，未硬编码。后续后台继续训练，本轮不等待完整 50 万次更新。
+- seed 2 终评 **18125 已提交**，Slurm 已确认 `afterok:18123`、KillOInInvalidDependent=Yes；训练成功后自动恢复 `runs/job-18123` 的最终控制器，独立评估 100 回合；训练失败则不运行该终评。账户复核仍为 MaxJobs=1、MaxSubmitJobs=2，因此先完成 18122 释放名额，再提交 18125，三个作业按依赖串行。
+- 本地调度入口增加 `-DependencyJobId`，使用成功依赖及无效依赖自动取消；调度改动提交 `4ba43c6`，已检查 PowerShell 语法、生成命令与实际 Slurm 依赖。算法与运行脚本仍锁定已验证 commit `c227be8c48353115b7c5de0b3e99fb17d388462f`；复用 18044 短测／18045 Base 检查、原子模块和缓存，不重新安装环境。
+- 每个作业独立申请单张 4090、8 CPU；训练上限 24 小时，终评上限 4 小时，排除登录节点。输出分别在 `runs/job-18122`／`runs/job-18123`／`runs/job-18125`，Slurm 日志位于 `logs/slurm/<job_id>.log`。
+- 已持久化整个依赖流程、配置 SHA256、版本与启动检查快照至 `runs/workflow-18122.json`；本地副本 `tmp/workflow-18122.json`。21:29 最后调度快照：18123 RUNNING，18125 PENDING(Dependency)。会话断开不影响训练及已提交的依赖终评。
+- 当前独立终评为 seed 0：99/100、seed 1：100/100；仍仅 task 57，seed 2 尚未完成。Base 为此前 seed 0 的 35/100，各 seed 的 reset 序列不同，不将这些数据称为同一状态下的严格配对结果。
+
+## seed 1 训练完成记录（2026-10-19 20:35；历史）
 
 - `18103` 正常完成：Slurm COMPLETED、ExitCode 0:0、SUCCESS.json passed=true；10 月 19 日 12:05:30–20:25:14，耗时 **8:19:44**，4090node2，单卡 4090、8 CPU。运行版本仍为 `c227be8c48353115b7c5de0b3e99fb17d388462f`，模型／子模块／配置沿用原基线，SAC 使用 seed 1 从头训练。
 - 完成 **500,000 次梯度更新**；训练交互 **493,605 环境步、25,501 chunk、2,863 回合**，包含 warmup。训练内评估另计 92,443 环境步、4,777 chunk、510 回合，不混入训练交互。
 - 最终 checkpoint 的训练内评估 **10/10 成功**，平均回合长度 **140.4 步**。40 万–50 万更新的 11 次评估合计 **109/110（99.09%）**，来自多个控制器版本，不能当作最终 checkpoint 的独立 110 回合成绩。早期有波动：1 万更新首次 10/10，但 4 万更新为 1/10，不能用首次满分宣称稳定收敛。
-- 全部已记录训练标量未发现 NaN／Inf；末次 actor loss 3.53872、critic loss 0.012365、temperature 0.003024。10 个 checkpoint 均有非空数据及 OCDBT manifest／metadata；最终 `runs/job-18103/checkpoint500000` 含 10 文件、34,340,882 字节。**尚未在新进程恢复该 seed 1 checkpoint 并完成独立终评。**
+- 全部已记录训练标量未发现 NaN／Inf；末次 actor loss 3.53872、critic loss 0.012365、temperature 0.003024。10 个 checkpoint 均有非空数据及 OCDBT manifest／metadata；最终 `runs/job-18103/checkpoint500000` 含 10 文件、34,340,882 字节。训练结束简报时尚未独立终评；现已由 18122 验证恢复并完成 100 回合，见顶部。
 - 989 次资源采样：峰值显存 **9,221 MiB（9.0 GiB）**，RSS 峰值 **22,483 MiB（22.0 GiB）**、中位约 7.5 GiB；整卡 GPU 利用率均值约 14.6%、中位 0%、峰值 100%，仅作资源采样解释。
 - 已保存 `runs/job-18103/result_summary.json` 与 seed 0／1 对比 `learning_curve.png`；本地副本位于忽略目录 `tmp/results-18103/`。原始指标、视频和 checkpoint 留远端。
-- 当前结论：同一 task 57 上，两次独立训练均产生明显学习改善；但只有 seed 0 已有独立 100 回合结果（99/100），seed 1 目前只有训练内评估。尚未完成三 seed 汇总，不能外推多任务、OOD 或受扰恢复收益。
-- 下一步顺序：① seed 1 最终 checkpoint 新进程恢复并独立评估 100 回合（不更新参数）；② 按原配置完成 seed 2 训练及终评，汇总三 seed；③ 先实现 E0／E1 共同状态探针，再做 E2 跨任务评估；是否开展 E3／E5 由探针证据决定。20:32 查询用户活动队列为空；本轮仅检查／汇总结果，**未提交新评估或训练作业**。
+- 当时结论：同一 task 57 上，两次独立训练均产生明显学习改善；训练完成简报时只有 seed 0 完成独立终评，现已补齐 seed 1。尚未完成三 seed 汇总，不能外推多任务、OOD 或受扰恢复收益。
+- 该次简报的下一步为 seed 1 终评、seed 2 训练及终评、E0／E1 探针与 E2 跨任务评估；该次只汇总结果、未提交新作业。本轮已按用户后续授权提交 18122／18123／18125，实际状态见顶部。
 
 ## seed 1 启动与过程记录（2026-10-19 11:55 启动；历史）
 
@@ -42,7 +56,7 @@
 
 - 固定 LIBERO-90 task 57：拿起奶油奶酪并放入托盘。
 - 冻结 `s3://openpi-assets/checkpoints/pi0_libero`；训练官方 DSRL-SAC 潜噪声控制器。
-- seed 0 的完整短测试、Base 评估、500,000 次训练更新与独立终评均已完成；seed 1 训练已完成，下一项为最终 checkpoint 独立终评，随后按同配置推进 seed 2。
+- seed 0／1 的训练及最终控制器独立终评均已完成；当前推进同配置 seed 2 训练与自动终评，之后汇总三 seed。
 - seed 1、2 按同一基线协议复验；扩展使用独立配置与运行目录，不加入当前基线训练。可并行准备下述探针与实验协议，扩展 GPU 作业须通过对应短测并满足调度配额。
 
 ## 扩展计划：多任务、OOD 与受扰恢复（2026-10-19 纳入）
@@ -108,8 +122,9 @@ E0／E1 是优先项，E2 提供低成本的跨任务证据。E3 与 E4 是两�
 | seed 0 正式训练 | 已完成 18046 | COMPLETED/0，500,000 更新；496,291 训练环境步；最终训练内评估 10/10；checkpoint500000 已保存 |
 | seed 0 最终控制器独立评估 | 已完成 18102 | checkpoint500000 新进程恢复；99/100 成功（99%）；对照 Base 35/100，观测增益 +64 pp |
 | seed 1 正式训练 | 已完成 18103 | COMPLETED/0；500,000 更新；493,605 训练环境步；末次训练内评估 10/10；最终 checkpoint 文件已核对 |
-| seed 1 最终控制器独立评估 | 待提交 | 新进程恢复 checkpoint500000 后评估 100 回合；不更新参数；目前不能报独立终评成功率 |
-| seed 2 正式训练与终评 | 待推进 | 沿用固定基线协议与单独输出目录；尚未提交 |
+| seed 1 最终控制器独立评估 | 已完成 18122 | COMPLETED/0；恢复 checkpoint500000；100/100 成功，平均 144.59 步；实际梯度更新为 0 |
+| seed 2 正式训练 | 运行中 18123，早期检查通过 | 已验证至 1,500 更新；3 个损失检查点均有限，temperature 为正；目标 500,000 更新 |
+| seed 2 最终控制器独立评估 | 已提交 18125，等待依赖 | afterok:18123；自动恢复最终 checkpoint，独立 100 回合，失败依赖自动取消 |
 | 多任务／OOD／受扰恢复扩展 | 计划已整理，未提交扩展作业 | 先 E0／E1，再 E2；共享训练与联合训练须分别通过短测；当前 MaxJobs=1 |
 
 阶段区别：`18044` 是已通过的 16 次更新短测试；`18045` 是正式训练前的 Base 评估；后续正式训练才会先采集 warmup replay、再交替采集与更新 SAC 噪声控制器。三个阶段都使用冻结 VLA，只有短测试和正式训练更新 SAC。
@@ -147,18 +162,18 @@ E0／E1 是优先项，E2 提供低成本的跨任务证据。E3 与 E4 是两�
 
 ## 下次对话
 
-先读取本文件，再使用 `tools/remote.ps1 status 18103` / `logs 18103`，以及 `status 18102` 查看 seed 0 独立评估；不重复安装未变化的环境，不重启仍在运行的作业。
+先读取本文件，再使用 `tools/remote.ps1 status 18123` / `logs 18123` 查看 seed 2 训练，以及 `status 18125` 查看已提交的自动终评；不重复安装未变化的环境，不重复提交正在运行／等待依赖的作业。
 
-当前训练目录：`/mnt/slurmfs-4090node3/user_data/yguo704/dsrl_pi0/runs/job-18103`。
+当前训练目录：`/mnt/slurmfs-4090node3/user_data/yguo704/dsrl_pi0/runs/job-18123`；自动终评目录 `runs/job-18125`（开始前可尚不存在）。
 seed 0 训练目录 `runs/job-18046`；独立评估目录 `runs/job-18102`。18102 汇总在 result_summary.json；唯一失败为从 0 编号的 rollout 80，视频为 media/1-eval_video_80.mp4。
-seed 0 完成状态、SUCCESS、500,000 更新和最终 checkpoint 已核对；独立终评 18102 已完成，99/100 成功。seed 1 训练 18103 也已完成，SUCCESS、500,000 更新、全程已记录标量和最终 checkpoint 文件均已核对；训练内末次 10/10，但独立 100 回合终评尚未提交。下轮优先提交 seed 1 最终评估，然后推进 seed 2；提交前先查询活动队列，避免重复作业。
+seed 0 训练 18046／终评 18102 已完成，99/100；seed 1 训练 18103／终评 18122 已完成，100/100。seed 2 训练 18123 已通过至少 1,500 次更新的早期检查，终评 18125 已绑定成功依赖；下轮先检查它们的状态、SUCCESS／FAILED、最终 checkpoint 与指标，再汇总三 seed，不重复提交终评。若训练失败，依赖终评会取消，先诊断明确作业，不默认重新提交。
 
 扩展下一项为 E0 协议与 E1 共同状态可控性探针的最小实现；不能把本次文档计划当作已有训练入口。提交扩展 GPU 作业前重新查询配额／队列，通过相应短测，并保留当前基线运行版本。
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/remote.ps1 status 18103
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/remote.ps1 logs 18103
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/remote.ps1 status 18102
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/remote.ps1 status 18123
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/remote.ps1 logs 18123
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/remote.ps1 status 18125
 ```
 
 训练每 50,000 次更新保存 checkpoint，时限 24 小时。会话／SSH 断开不影响 Slurm 运行。若失败或超时，先读 FAILED.json 和日志；当前没有 replay／模拟器状态的完整续训能力，不应直接宣称可无损恢复训练。
