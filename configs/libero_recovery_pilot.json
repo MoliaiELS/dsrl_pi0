@@ -1,0 +1,132 @@
+{
+  "task_suite": "libero_90",
+  "task_id": 57,
+  "model_config": "pi0_libero",
+  "resolution": 256,
+  "query_freq": 20,
+  "episode_budget": 400,
+  "reference_prefix_steps": 20,
+  "settle_steps": 20,
+  "intervention_steps": 40,
+  "reset_seeds": [
+    20,
+    21,
+    22,
+    23,
+    24
+  ],
+  "reserved_test_reset_seeds": [
+    200,
+    201,
+    202,
+    203,
+    204,
+    205,
+    206,
+    207,
+    208,
+    209
+  ],
+  "noise_seed_base": 73000,
+  "target_object": "cream_cheese_1",
+  "support_body": "living_room_table",
+  "physics_atol": 1e-8,
+  "proprio_atol": 1e-7,
+  "action_atol": 0.00001,
+  "image_atol": 0,
+  "penetration_tolerance_m": 0.001,
+  "offset_tolerance_m": 0.005,
+  "height_tolerance_m": 0.005,
+  "max_settled_speed_mps": 0.05,
+  "ik_screen_height_m": 0.08,
+  "ik_screen_tolerance_m": 0.01,
+  "controller": {
+    "run_dir": "runs/job-18046",
+    "checkpoint_step": 500000,
+    "training_seed": 0
+  },
+  "conditions": [
+    {
+      "id": "C0",
+      "release": false
+    },
+    {
+      "id": "C2_drop",
+      "release": true
+    }
+  ],
+  "instructions": [
+    {
+      "id": "original",
+      "text": "{task}",
+      "role": "original_goal"
+    },
+    {
+      "id": "regrasp",
+      "text": "grasp the cream cheese again and place it in the tray",
+      "role": "recovery_candidate"
+    },
+    {
+      "id": "paraphrase",
+      "text": "place the cream cheese in the tray",
+      "role": "goal_paraphrase"
+    },
+    {
+      "id": "pick",
+      "text": "pick up the cream cheese",
+      "role": "subgoal"
+    }
+  ],
+  "noise_modes": [
+    "base",
+    "bounded_random",
+    "dsrl"
+  ],
+  "noise_conditions": [],
+  "smoke_eval_reset_seeds": [
+    20
+  ],
+  "smoke_pairs": [
+    [
+      "original",
+      "base"
+    ],
+    [
+      "original",
+      "bounded_random"
+    ],
+    [
+      "original",
+      "dsrl"
+    ],
+    [
+      "regrasp",
+      "dsrl"
+    ]
+  ],
+  "repeat_validation_reset_seeds": [
+    20
+  ],
+  "video_reset_seeds": [
+    20
+  ],
+  "video_stride": 2,
+  "state_builder": "held_object_drop",
+  "split": "development C2 pilot; held-object sham and physical release; no OOD claim",
+  "common_state_method": "seeded reset, recorded DSRL prefix to held-object trigger, physical release or held sham, equal neutral settling",
+  "smoke_reset_seeds": [
+    20
+  ],
+  "reference_max_steps": 160,
+  "reference_lift_m": 0.04,
+  "reference_translation_m": 0.01,
+  "reference_grasp_hold_steps": 3,
+  "min_drop_height_m": 0.02,
+  "max_drop_horizontal_m": 0.08,
+  "max_sham_displacement_m": 0.015,
+  "min_remaining_steps": 200,
+  "repeat_validation_conditions": [
+    "C0",
+    "C2_drop"
+  ]
+}

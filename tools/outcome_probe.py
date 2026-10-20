@@ -463,10 +463,16 @@ def main():
         'learning': False, 'protocol_file_sha256': hashlib.sha256(protocol_path.read_bytes()).hexdigest(),
         'split': ('development smoke; confirmation states not evaluated' if args.mode == 'outcome-smoke'
                   and 'smoke_reset_seeds' in cfg else cfg.get('split', 'development; reserved test seeds are not evaluated')),
-        'common_state_method': 'seeded fresh reset, recorded actions, recorded offset and common settling'})
+        'common_state_method': cfg.get('common_state_method', 'seeded fresh reset, recorded actions, recorded offset and common settling')})
     logger = RunLogger(folder)
     try:
-        OutcomeProbe(cfg, folder, logger).run()
+        if cfg.get('state_builder') == 'held_object_drop':
+            from tools.recovery_probe import RecoveryProbe
+            probe_class = RecoveryProbe
+        else:
+            assert cfg.get('state_builder', 'pregrasp_shift') == 'pregrasp_shift'
+            probe_class = OutcomeProbe
+        probe_class(cfg, folder, logger).run()
         write_json(folder / 'SUCCESS.json', {'mode': args.mode, 'passed': True})
     except BaseException as error:
         write_json(folder / 'FAILED.json', {'type': type(error).__name__, 'error': str(error),
