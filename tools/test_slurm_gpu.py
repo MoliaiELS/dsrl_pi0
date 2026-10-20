@@ -1,7 +1,7 @@
 """CPU checks that UUID normalization stays within the allocated device file."""
 import unittest
 
-from tools.slurm_gpu import check_gres, select_gpu
+from tools.slurm_gpu import check_gres, select_egl_device, select_gpu
 
 
 class SlurmGpuBinding(unittest.TestCase):
@@ -42,6 +42,17 @@ class SlurmGpuBinding(unittest.TestCase):
         for config in [text.replace('[0-3]', '[1-4]'), text.replace('4090node', '3090node'), '']:
             with self.subTest(config=config), self.assertRaises(ValueError):
                 check_gres(config, '4090node2')
+
+    def test_matches_egl_by_pci_rather_than_assuming_same_index(self):
+        devices = [{'egl_index': 2, 'pci_bus_id': '0000:CA:00.0'},
+                   {'egl_index': 0, 'pci_bus_id': '0000:31:00.0'}]
+        self.assertEqual(select_egl_device('00000000:ca:00.0', devices)['egl_index'], 2)
+
+    def test_rejects_missing_or_ambiguous_egl_identity(self):
+        target = {'egl_index': 2, 'pci_bus_id': '0000:CA:00.0'}
+        for devices in [[], [target, target]]:
+            with self.subTest(devices=devices), self.assertRaises(ValueError):
+                select_egl_device('00000000:ca:00.0', devices)
 
 
 if __name__ == '__main__':

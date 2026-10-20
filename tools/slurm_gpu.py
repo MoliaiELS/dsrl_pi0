@@ -85,13 +85,54 @@ def verify_cuda(pci):
     print(json.dumps({'device_count': count.value, 'pci_bus_id': actual}))
 
 
+def select_egl_device(pci, devices):
+    normalize = lambda bus: bus.lower().lstrip('0')
+    matches = [device for device in devices if normalize(device['pci_bus_id']) == normalize(pci)]
+    if len(matches) != 1:
+        raise ValueError('Allocated PCI device does not resolve to exactly one EGL device')
+    return matches[0]
+
+
+def egl_inventory():
+    from mujoco.egl import egl_ext as egl
+    query = ctypes.CFUNCTYPE(ctypes.c_char_p, ctypes.c_void_p, ctypes.c_int)(
+        egl.eglGetProcAddress('eglQueryDeviceStringEXT'))
+    devices = []
+    for index, device in enumerate(egl.eglQueryDevicesEXT()):
+        handle = ctypes.cast(device, ctypes.c_void_p)
+        extensions = query(handle, 0x3055) or b''  # EGL_EXTENSIONS
+        if b'EGL_EXT_device_drm' not in extensions.split():
+            continue
+        name = query(handle, 0x3233)  # EGL_DRM_DEVICE_FILE_EXT
+        if name:
+            drm = name.decode()
+            pci = (Path('/sys/class/drm') / Path(drm).name / 'device').resolve().name
+            devices.append({'egl_index': index, 'drm_device': drm, 'pci_bus_id': pci})
+    return devices
+
+
+def verify_egl(index):
+    from robosuite.renderers.context.egl_context import EGLGLContext
+    from OpenGL import GL
+    context = EGLGLContext(32, 32, device_id=index)
+    try:
+        context.make_current()
+        print(json.dumps({'egl_index': index, 'renderer': GL.glGetString(GL.GL_RENDERER).decode()}))
+    finally:
+        context.free()
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--output', type=Path)
     ap.add_argument('--verify-pci')
+    ap.add_argument('--verify-egl', type=int)
     args = ap.parse_args()
     if args.verify_pci:
         verify_cuda(args.verify_pci)
+        return
+    if args.verify_egl is not None:
+        verify_egl(args.verify_egl)
         return
     if args.output is None:
         ap.error('--output is required')
@@ -114,7 +155,17 @@ def main():
             raise RuntimeError('Allocated-device verification failed: ' + checked.stderr[-3000:])
         record.update(cuda_verification=json.loads(checked.stdout), passed=True,
                       cuda_visible_devices=selected['uuid'])
+        render_device = select_egl_device(selected['pci_bus_id'], egl_inventory())
+        record['selected_egl_device'] = render_device
+        child_env['MUJOCO_EGL_DEVICE_ID'] = str(render_device['egl_index'])
+        checked_egl = subprocess.run([
+            sys.executable, '-m', 'tools.slurm_gpu', '--verify-egl', str(render_device['egl_index'])],
+            env=child_env, capture_output=True, text=True, timeout=30)
+        if checked_egl.returncode:
+            raise RuntimeError('Allocated EGL verification failed: ' + checked_egl.stderr[-3000:])
+        record['egl_verification'] = json.loads(checked_egl.stdout.strip().splitlines()[-1])
         exports = {'CUDA_VISIBLE_DEVICES': selected['uuid'],
+                   'MUJOCO_EGL_DEVICE_ID': str(render_device['egl_index']),
                    'DSRL_SCHEDULER_CUDA_VISIBLE_DEVICES': record['scheduler_cuda_visible_devices']}
         (args.output / 'gpu_binding.sh').write_text(''.join(
             'export ' + key + '=' + shlex.quote(value) + '\n' for key, value in exports.items()))
