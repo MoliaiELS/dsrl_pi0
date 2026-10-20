@@ -10,6 +10,8 @@ export DSRL_DATA_ROOT="$data_root"
 source tools/remote-env.sh
 run_dir="$DSRL_DATA_ROOT/runs/job-$SLURM_JOB_ID"
 mkdir -p "$run_dir/libero_config"
+python -m tools.slurm_gpu --output "$run_dir"
+source "$run_dir/gpu_binding.sh"
 if [[ -n "$gate_job" ]]; then
     test "$mode" = 'outcome'
     python - "$gate_job" "$config" "$run_dir" <<'PY'
