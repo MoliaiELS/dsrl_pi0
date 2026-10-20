@@ -7,10 +7,13 @@ param(
     [string]$ConfigPath='', [string]$Commit='', [int]$Seed=0,
     [string]$ExperimentConfig='',
     [string]$SmokeJobId='', [string]$BaseJobId='', [string]$RestorePath='',
-    [string]$DependencyJobId='',
+    [string]$DependencyJobId='', [switch]$DeferredSmokeGate,
     [switch]$PrintScript
 )
 $ErrorActionPreference='Stop'
+if ($DeferredSmokeGate -and ($Command -ne 'outcome' -or $SmokeJobId -notmatch '^\d+$' -or $DependencyJobId -ne $SmokeJobId)) {
+    throw 'DeferredSmokeGate requires outcome with identical numeric SmokeJobId and DependencyJobId.'
+}
 if ($DependencyJobId) {
     if ($DependencyJobId -notmatch '^\d+$') { throw 'DependencyJobId must be an explicit numeric job ID.' }
     if ($Command -notin @('env','smoke','eval','train','probe-smoke','probe','outcome-smoke','outcome')) { throw 'Dependencies apply only to submitted jobs.' }
@@ -105,7 +108,9 @@ print(json.dumps(result,indent=2))
     } else {
         if ($Command -eq 'outcome') {
             if ($SmokeJobId -notmatch '^\d+$') { throw 'Outcome requires a successful -SmokeJobId from outcome-smoke.' }
+            if (-not $DeferredSmokeGate) {
             $script += 'python -c '+(Quote-Bash ('import json,hashlib; from pathlib import Path; p=Path("'+$config.DataRoot+'/runs/job-'+$SmokeJobId+'"); r=json.loads((p/"run.json").read_text()); s=json.loads((p/"SUCCESS.json").read_text()); h=hashlib.sha256(Path("'+$repo+'/'+$ExperimentConfig+'").read_bytes()).hexdigest(); assert r["commit"]=="'+$Commit+'" and r["mode"]=="outcome-smoke" and r["protocol_file_sha256"]==h and s["passed"], (r,s)'))
+            }
         }
         if ($Command -eq 'probe') {
             if ($SmokeJobId -notmatch '^\d+$') { throw 'Probe requires a successful -SmokeJobId from probe-smoke.' }
@@ -135,7 +140,8 @@ print(json.dumps(result,indent=2))
             (Quote-Bash ($repo+'/tools/job.sh')), (Quote-Bash $repo),
             (Quote-Bash $config.CondaRoot), (Quote-Bash $config.CondaEnv),
             (Quote-Bash $config.DataRoot), (Quote-Bash $mode),
-            (Quote-Bash $ExperimentConfig), [string]$Seed, (Quote-Bash $RestorePath))
+            (Quote-Bash $ExperimentConfig), [string]$Seed, (Quote-Bash $RestorePath),
+            (Quote-Bash $(if ($DeferredSmokeGate) {$SmokeJobId} else {''})))
         $script += 'job=$('+($arguments -join ' ')+')'
         $script += 'echo "JOB_ID=$job"'
         $script += 'echo "LOG='+$config.DataRoot+'/logs/slurm/$job.log"'

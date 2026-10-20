@@ -100,8 +100,10 @@ def run_series(args, config, folder, protocol_path):
             assert summary['gradient_updates'] == 0 and summary['controller_unchanged']
             assert summary['frozen_vla_output_unchanged'] and summary['reference_rollouts_reproducible']
             assert summary['counts']['cases_completed'] == summary['counts']['cases_planned']
-            if config.get('require_common_states') and completed:
-                reference = folder / completed[0]['id'] / 'common_states'
+            group = stage.get('common_state_group', 'all' if config.get('require_common_states') else None)
+            previous = [s for s in completed if group and s.get('common_state_group') == group]
+            if previous:
+                reference = folder / previous[0]['id'] / 'common_states'
                 witnesses = sorted((directory / 'common_states').glob('*.npz'))
                 assert [p.name for p in witnesses] == sorted(p.name for p in reference.glob('*.npz'))
                 for witness in witnesses:
@@ -109,10 +111,13 @@ def run_series(args, config, folder, protocol_path):
                         assert set(actual.files) == set(expected.files)
                         for key in actual.files:
                             np.testing.assert_array_equal(actual[key], expected[key], err_msg=f'{current}/{witness.name}/{key}')
-            completed.append({'id': current, 'directory': str(directory),
+            completed.append({'id': current, 'directory': str(directory), 'common_state_group': group,
                               'run': read(directory / 'run.json'), 'summary': summary})
+            verified_groups = {g: sum(s.get('common_state_group') == g for s in completed)
+                               for g in {s.get('common_state_group') for s in completed} if g}
             write_json(folder / 'series_summary.json', {'stages': completed, 'learning': False,
-                       'cross_controller_common_states_verified': config.get('require_common_states', False)})
+                       'common_state_groups_verified': verified_groups,
+                       'cross_controller_common_states_verified': any(n > 1 for n in verified_groups.values())})
             refresh(current)
         assert read(folder / 'latest.json')['probe/cases_completed'] == planned
         write_json(folder / 'SUCCESS.json', {'mode': args.mode, 'passed': True, 'stages_completed': len(completed)})

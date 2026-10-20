@@ -7,7 +7,7 @@ param(
     [string]$ConfigPath = '', [string]$Commit='', [int]$Seed=0,
     [string]$ExperimentConfig='',
     [string]$SmokeJobId='', [string]$BaseJobId='', [string]$RestorePath='',
-    [string]$DependencyJobId=''
+    [string]$DependencyJobId='', [switch]$DeferredSmokeGate
 )
 $ErrorActionPreference = 'Stop'
 & (Join-Path $PSScriptRoot 'remote_jobs.ps1') @PSBoundParameters

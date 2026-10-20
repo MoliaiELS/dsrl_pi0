@@ -1,0 +1,10 @@
+{
+  "kind": "outcome_series",
+  "split": "locked held-out confirmation followed by development C2 pilot; all policies frozen",
+  "stages": [
+    {"id": "seed0", "config": "configs/libero_confirm_seed0.json", "common_state_group": "confirmation"},
+    {"id": "seed1", "config": "configs/libero_confirm_seed1.json", "common_state_group": "confirmation"},
+    {"id": "seed2", "config": "configs/libero_confirm_seed2.json", "common_state_group": "confirmation"},
+    {"id": "recovery", "config": "configs/libero_recovery_pilot.json", "common_state_group": "recovery"}
+  ]
+}

@@ -2,6 +2,7 @@
 set -euo pipefail
 repo="$1"; conda_root="$2"; conda_env="$3"; data_root="$4"
 mode="$5"; config="$6"; seed="$7"; restore_path="${8:-}"
+gate_job="${9:-}"
 source "$conda_root/etc/profile.d/conda.sh"
 conda activate "$conda_env"
 cd "$repo"
@@ -9,6 +10,25 @@ export DSRL_DATA_ROOT="$data_root"
 source tools/remote-env.sh
 run_dir="$DSRL_DATA_ROOT/runs/job-$SLURM_JOB_ID"
 mkdir -p "$run_dir/libero_config"
+if [[ -n "$gate_job" ]]; then
+    test "$mode" = 'outcome'
+    python - "$gate_job" "$config" "$run_dir" <<'PY'
+import hashlib, json, os, subprocess, sys
+from pathlib import Path
+job, protocol, output = sys.argv[1:]
+assert job.isdigit()
+source = Path(os.environ['DSRL_DATA_ROOT']) / 'runs' / ('job-' + job)
+run = json.loads((source / 'run.json').read_text())
+success = json.loads((source / 'SUCCESS.json').read_text())
+commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+digest = hashlib.sha256(Path(protocol).read_bytes()).hexdigest()
+assert run['commit'] == commit and run['mode'] == 'outcome-smoke' and success['passed'], (run, success)
+assert run['protocol_file_sha256'] == digest, 'Smoke protocol differs from scheduled outcome protocol'
+check = {'smoke_job_id': job, 'passed': True, 'commit': commit, 'protocol_file_sha256': digest}
+(Path(output) / 'gate_check.json').write_text(json.dumps(check, indent=2))
+print('DEFERRED_SMOKE_GATE', json.dumps(check), flush=True)
+PY
+fi
 export LIBERO_CONFIG_PATH="$run_dir/libero_config"
 export DSRL_MODEL_PATH="$DSRL_DATA_ROOT/checkpoints/pi0_libero"
 export WANDB_MODE=disabled
