@@ -2,7 +2,19 @@
 
 更新时间：2026-10-20（Asia/Shanghai）。本文件记录事实状态；提交成功不等于运行成功。
 
-## 当前轮次：保留 seed 确认、控制器种子复核与 C2 试点（2026-10-20 14:46）
+## 当前轮次：串行进度汇总故障修复与重提（2026-10-20 17:07）
+
+- 用户反馈两个任务结束。核对发现 **18188 FAILED/1:0**，14:54:19–14:54:24，仅 5 秒；**18189 CANCELLED**，未分配资源／未开始，原因是 `afterok:18188` 不满足且自动取消门禁生效。此前排队估计时间不是实际启动时间，实际以 sacct 上述记录为准。
+- 根因是新增 `tools/outcome_series.py` 的 `refresh()`：遍历数值计数字典时，又向该字典加入字符串 `probe/current_case`，处理下一个阶段时执行字符串加整数，触发 `TypeError: can only concatenate str (not "int") to str`。它发生在第一个子阶段启动前，`completed_stages=[]`，没有任何新评估回合，不能将其解读为算法或恢复能力失败。旧目录与日志保留。
+- 修复提交 **`2f2b2171b35ce995682775d36df1330989c0fa05`** 已推送并同步至独立 worktree `dsrl_pi0-runs/2f2b2171b35c`。将字符串状态与数值累计分离；候选文本、seed、C0／C1／C2 构造协议、预算、控制器 checkpoint 与子模块版本不变，未重装环境。
+- 新增 CPU 回归检查 `tools/test_outcome_series.py`，用真实独立子进程的轻量 fixture 检验：四阶段正常执行／指标与资源汇总、子阶段失败后阻断并保留先前数据、跨控制器共同状态变化时拒绝后续。远端 `python -m unittest tools.test_outcome_series -v` **3/3 通过，8.761 秒**；这些测试不加载 VLA／仿真，不能替代 GPU 短测。
+- 已重新提交 **18195 短测 → 18196 正式系列**，相同 `configs/libero_followup_series.json`，仍为 32 主回合短测／420 主回合正式系列，各另有 8 验证重复。17:07 核对 **18195 RUNNING(4090node2)**，18196 排队，Slurm 依赖为 `afterok:18195` 且 `KillOInInvalidDependent=Yes`，运行时版本／协议门禁保留。CPU 问题修复已验证，完整 GPU 短测仍在进行。
+- **18195 已 COMPLETED/0、SUCCESS**：17:07:29–17:20:12，耗时 **12:43**，32/32 主回合、8 次完整参考重复、四阶段全部通过。跨控制器共同状态逐数组一致，各阶段物理状态／本体状态／两路相机重放误差为 0，控制器指纹与冻结 VLA 输出未变。参考前缀 128、重放 1,596、稳定 396、延续 8,200 环境步，共 **10,320 步**，437 次 VLA／294 次控制器调用，梯度更新 0。显存峰值 9,209 MiB（9.0 GiB），RSS 峰值 24,442.5 MiB（23.9 GiB）。
+- seed 0 的 12 个短测分支与此前成功短测 18165 对照，成功与否、完成步数、首次抓取／抬升／成功时间 **全部一致**。C2 开发 seed 20 已成功触发、释放落地并通过物理与重放检查；该小样本只说明流程可运行，不作为恢复收益结论。
+- **18196 已自动启动**，17:20:29 在 4090node2 进入 RUNNING；已读取 `gate_check.json` 核对 `smoke_job_id=18195`、同 commit、同协议 SHA256、passed=true。正式结果将分别保存在 `seed0/seed1/seed2/recovery`，保持原定 420 主回合，后续阶段自动接续。短测与门禁证据本地副本 `tmp/repair-18195/`，旧故障本地 `tmp/failure-18188/`。
+- 17:23 正式启动检查：首阶段 **30/30 个保留共同状态已构造并通过物理校验**，开始 `seed100__C0__original__base` 回合；仍 RUNNING、梯度更新 0。完整修复／测试／短测与启动证据 `runs/followup-workflow-18196.json`，本地 `tmp/followup-workflow-18196.json`。本会话不等待全部 420 主回合，后续由 Slurm 后台运行。
+
+## 保留 seed 确认、控制器种子复核与 C2 试点首次提交（2026-10-20 14:46；历史）
 
 - 用户已授权启动后续实验，并要求会话结束前完成可自动展开的提交。已实现并提交 **整体短测 18188 → 正式系列评估 18189**；14:46 调度器核对为 **18188 PENDING(Resources)**、**18189 PENDING(Dependency)**。尚未分配 GPU，不能称为运行中或短测通过。源账户仍为 MaxJobs=1、MaxSubmitJobs=2，因此使用一个单卡作业内的串行独立评估进程。
 - 代码提交 **`d52f0703879cdf4533449cc95232b4b2b843f2bb`** 已推送并同步至独立 worktree `dsrl_pi0-runs/d52f0703879c`；协议 `configs/libero_followup_series.json`。原 OpenPI／LIBERO 子模块锁不变，未安装新依赖，未修改算法训练逻辑。新增 `outcome_series.py` 串行工作流、`recovery_probe.py` 物理释放构造器，并允许恢复现成 seed 1／2 噪声控制器。
@@ -246,7 +258,7 @@ E0／E1 是优先项，E2 提供低成本的跨任务证据。E3 与 E4 是两�
 | seed 2 最终控制器独立评估 | 已完成 18125 | COMPLETED/0，98/100 成功，平均 179.72 步；无参数更新 |
 | E0／E1 正常状态可控性探针 | 已完成 18158／18160 | 60 组合完成；重放误差 0，重复延续／冻结输出一致；接口有响应，但 40 步片段均未完成任务 |
 | 完整结果／C1 扰动探针 | 18165／18166 均已完成 | 360 回合；原指令＋DSRL 27/30，重抓／子目标＋DSRL 各 30/30；开发证据，无新训练 |
-| 保留确认／控制器复核／C2 试点 | 18188／18189 已提交，按成功依赖自动展开 | 32 主回合短测 → 420 主回合正式系列，均无参数更新；尚待 GPU 资源 |
+| 保留确认／控制器复核／C2 试点 | 18195 短测通过，18196 正式运行中 | 修复原 18188 汇总错误；32 主回合短测＋8 重复通过，正式 420 主回合自动展开 |
 | 多任务／OOD／学习式选择器 | 后续计划，未启动训练 | C3、E2／E3／E5 未开展；进入条件见顶部综合证据分析 |
 
 阶段区别：`18044` 是已通过的 16 次更新短测试；`18045` 是正式训练前的 Base 评估；后续正式训练才会先采集 warmup replay、再交替采集与更新 SAC 噪声控制器。三个阶段都使用冻结 VLA，只有短测试和正式训练更新 SAC。
@@ -284,20 +296,19 @@ E0／E1 是优先项，E2 提供低成本的跨任务证据。E3 与 E4 是两�
 
 ## 下次对话
 
-先读取本文件顶部，**优先检查 18188 短测与 18189 正式系列**。二者已提交，不要重复提交确认／复核／C2。流程记录 `runs/followup-workflow-18189.json`；正式结果根目录 `/mnt/slurmfs-4090node3/user_data/yguo704/dsrl_pi0/runs/job-18189`，阶段为 `seed0/`、`seed1/`、`seed2/`、`recovery/`。先核对根目录 SUCCESS／FAILED、series_summary、gate_check，再分别分析各阶段 outcome_summary 与 cases。若短测失败，18189 应自动取消；先读 18188 的 FAILED 和指向的阶段 `<stage>.log`，保留数据，查明原因后再修复和重提。若短测排队，继续等待调度，不额外占队列名额。
+先读取本文件顶部，**优先检查正式系列 18196**，不要重复提交确认／复核／C2。短测 18195 已 COMPLETED/0、SUCCESS，32 主回合＋8 重复及三控制器／C2 四阶段均通过。原 18188 在任何子阶段启动前因汇总类型错误失败，18189 被依赖自动取消；问题已修复，无需再等待这两个旧作业。正式结果根目录 `/mnt/slurmfs-4090node3/user_data/yguo704/dsrl_pi0/runs/job-18196`，阶段为 `seed0/`、`seed1/`、`seed2/`、`recovery/`。先核对根目录 SUCCESS／FAILED、series_summary、gate_check，再分别分析各阶段 outcome_summary 与 cases。若失败，先读根 FAILED 和其指向的 `<stage>.log`／阶段 FAILED，保留完成阶段，不覆盖重跑。
 
 完整任务结果探针 **18166 已 COMPLETED/0、SUCCESS**，360 回合与分析均已完成；无需重跑。结果目录 `runs/job-18166`，分析 `outcome_analysis.json`／`research_evidence.json`，本地 `tmp/outcome-18166/`。首轮短片段 18160、完整预算短测 18165 也已完成。
 
 三 seed 基线已全部完成：训练 18046／18103／18123，终评 18102／18122／18125，分别 99／100／98 次成功。汇总在远端 `runs/baseline-three-seeds.json`／`.png`，本地 `tmp/baseline-three-seeds/`；无需再提交 seed 2 训练或终评。
 
-18189 完成后，先对固定文本的保留 seed 确认报告配对成功差与完整完成曲线，再检查控制器 seed 1／2 的一致性与退化；候选筛选与测试分开，不根据保留结果反复改提示。C2 单独报告触发、支撑／释放验证、恢复成功与回退事件，比较最佳固定提示和事后逐状态候选上界，以判断学习选择器是否有空间。C0 持物控制与原 C1 抓取前控制是不同参考状态，勿混成同一组成功率。按 reset seed 配对／聚类，独立记录 controller training seed、reset seed 和 rollout RNG。
+18196 完成后，先对固定文本的保留 seed 确认报告配对成功差与完整完成曲线，再检查控制器 seed 1／2 的一致性与退化；候选筛选与测试分开，不根据保留结果反复改提示。C2 单独报告触发、支撑／释放验证、恢复成功与回退事件，比较最佳固定提示和事后逐状态候选上界，以判断学习选择器是否有空间。C0 持物控制与原 C1 抓取前控制是不同参考状态，勿混成同一组成功率。按 reset seed 配对／聚类，独立记录 controller training seed、reset seed 和 rollout RNG。
 
 独立确认后，再增加扰动时点／强度与失败状态，检查是否存在不同状态需要不同候选的证据，再考虑最小 Instruction RL／Joint RL 和等交互预算比较；固定提示已足够时保留简单方案，不为训练选择器而预设必要性。当前只有抓取前轻微位移的开发证据，不称为 OOD 提升，也不直接提交共享多任务训练。
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/remote.ps1 status 18188
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/remote.ps1 status 18189
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/remote.ps1 logs 18189
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/remote.ps1 status 18196
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/remote.ps1 logs 18196
 ```
 
 训练每 50,000 次更新保存 checkpoint，时限 24 小时。会话／SSH 断开不影响 Slurm 运行。若失败或超时，先读 FAILED.json 和日志；当前没有 replay／模拟器状态的完整续训能力，不应直接宣称可无损恢复训练。
