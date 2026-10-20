@@ -10,6 +10,7 @@ from tools.run_logger import write_json
 
 class RecoveryProbe(OutcomeProbe):
     def prefix(self, seed):
+        self.log('building_reference_prefix', **{'probe/current_case': f'reference_seed{seed:03d}'})
         env, obs = self.reset_seed(seed)
         actions_out, stable = [], 0
         initial = self.events(env, 0)['position'].copy()
@@ -33,10 +34,34 @@ class RecoveryProbe(OutcomeProbe):
                             and np.linalg.norm(event['position'][:2] - initial[:2]) >= self.cfg['reference_translation_m'])
                 stable = stable + 1 if eligible else 0
                 if step + 1 >= self.cfg['reference_prefix_steps'] and stable >= self.cfg['reference_grasp_hold_steps']:
+                    trigger_steps = len(actions_out)
+                    trigger_position = event['position'].copy()
+                    hold = np.zeros(7, dtype=np.float32)
+                    hold[-1] = 1
+                    settling = []
+                    # Stop the moving reference before either intervention. These actions
+                    # belong to the shared replay prefix and consume the episode budget.
+                    for _ in range(self.cfg.get('reference_stabilize_steps', 0)):
+                        obs, _, done, _ = env.step(hold)
+                        self.counts['prefix_env_steps'] += 1
+                        actions_out.append(hold.copy())
+                        assert not done, f'Reference stabilization completed goal for seed {seed}'
+                        event = self.events(env, initial[2])
+                        velocity = env.sim.data.get_joint_qvel(self.target(env).joints[0])
+                        settling.append({'grasped': event['grasped'],
+                                         'linear_speed_mps': float(np.linalg.norm(velocity[:3]))})
+                    if settling:
+                        tail = settling[-self.cfg['reference_grasp_hold_steps']:]
+                        assert all(s['grasped'] for s in tail), f'Unstable held reference for seed {seed}: {tail}'
+                        assert max(s['linear_speed_mps'] for s in tail) <= self.cfg['max_reference_speed_mps'], (
+                            f'Reference still moving for seed {seed}: {tail}')
                     folder = self.directory / 'reference_prefixes'
                     folder.mkdir(exist_ok=True)
                     write_json(folder / f'seed{seed:03d}.json', {
                         'reset_seed': seed, 'env_steps': len(actions_out),
+                        'trigger_env_steps': trigger_steps, 'stabilization_env_steps': len(settling),
+                        'held_position_before_stabilization': trigger_position.tolist(),
+                        'stabilization_tail': settling[-self.cfg['reference_grasp_hold_steps']:],
                         'initial_target_position': initial.tolist(), 'held_target_position': event['position'].tolist(),
                         'grasped': event['grasped'], 'stable_trigger_steps': stable,
                         'reference_controller_run': self.cfg['controller']['run_dir'],
@@ -68,7 +93,9 @@ class RecoveryProbe(OutcomeProbe):
             assert np.linalg.norm(velocity[:3]) <= self.cfg['max_settled_speed_mps'], velocity
         else:
             assert after['grasped'], 'C0 held-object sham lost the target'
-            assert np.linalg.norm(delta) <= self.cfg['max_sham_displacement_m'], delta
+            assert np.linalg.norm(delta) <= self.cfg['max_sham_displacement_m'], (
+                f'{condition["id"]} drift {np.linalg.norm(delta):.6f} m exceeds '
+                f'{self.cfg["max_sham_displacement_m"]:.6f} m; delta={delta.tolist()}')
         validation = {'triggered': bool(release), 'release_gripper_command': float(hold[-1]),
                       'initial_target_position': after['position'].tolist(),
                       'held_position_before': before['position'].tolist(), 'drop_displacement_m': delta.tolist(),

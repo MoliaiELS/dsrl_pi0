@@ -221,13 +221,14 @@ class OutcomeProbe(Probe):
             hold = np.zeros(7)
             hold[-1] = prefix[-1, -1]
             for condition in self.cfg['conditions']:
+                name = f'seed{seed:03d}__{condition["id"]}'
+                self.log('constructing_outcome_state', **{'probe/current_case': name})
                 env, _ = self.replay_prefix(seed, prefix)
                 try:
                     obs, validation = self.apply_condition(env, condition, hold, ik_screen=True)
                     witness = self.snapshot(env, obs, prefix)
                 finally:
                     env.close()
-                name = f'seed{seed:03d}__{condition["id"]}'
                 state = {'id': name, 'reset_seed': seed, 'condition': condition, 'prefix': prefix,
                          'hold_action': hold, 'witness': witness, 'validation': validation,
                          'remaining_budget': self.cfg['episode_budget'] - len(prefix) - self.cfg['settle_steps']}

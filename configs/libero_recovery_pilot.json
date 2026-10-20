@@ -84,7 +84,11 @@
   ],
   "noise_conditions": [],
   "smoke_eval_reset_seeds": [
-    20
+    20,
+    21,
+    22,
+    23,
+    24
   ],
   "smoke_pairs": [
     [
@@ -112,10 +116,14 @@
   ],
   "video_stride": 2,
   "state_builder": "held_object_drop",
-  "split": "development C2 pilot; held-object sham and physical release; no OOD claim",
-  "common_state_method": "seeded reset, recorded DSRL prefix to held-object trigger, physical release or held sham, equal neutral settling",
+  "split": "development C2 pilot v2; common held-object stabilization before sham/release; no OOD claim",
+  "common_state_method": "seeded reset, recorded DSRL lifted-object prefix plus fixed 20-step closed-gripper stabilization, matched hold/release and 20-step settling",
   "smoke_reset_seeds": [
-    20
+    20,
+    21,
+    22,
+    23,
+    24
   ],
   "reference_max_steps": 160,
   "reference_lift_m": 0.04,
@@ -128,5 +136,8 @@
   "repeat_validation_conditions": [
     "C0",
     "C2_drop"
-  ]
+  ],
+  "protocol_version": "C2_stable_shared_prefix_v2",
+  "reference_stabilize_steps": 20,
+  "max_reference_speed_mps": 0.02
 }
