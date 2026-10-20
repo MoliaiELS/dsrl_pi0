@@ -1,11 +1,11 @@
 [CmdletBinding()]
 param(
     [Parameter(Position=0)]
-    [ValidateSet('doctor','install-env','sync','env','smoke','eval','train','status','logs')]
+    [ValidateSet('doctor','install-env','sync','env','smoke','eval','train','probe-smoke','probe','status','logs')]
     [string]$Command='doctor',
     [Parameter(Position=1)][string]$JobId='',
     [string]$ConfigPath='', [string]$Commit='', [int]$Seed=0,
-    [string]$ExperimentConfig='configs/libero_baseline.json',
+    [string]$ExperimentConfig='',
     [string]$SmokeJobId='', [string]$BaseJobId='', [string]$RestorePath='',
     [string]$DependencyJobId='',
     [switch]$PrintScript
@@ -13,7 +13,10 @@ param(
 $ErrorActionPreference='Stop'
 if ($DependencyJobId) {
     if ($DependencyJobId -notmatch '^\d+$') { throw 'DependencyJobId must be an explicit numeric job ID.' }
-    if ($Command -notin @('env','smoke','eval','train')) { throw 'Dependencies apply only to submitted jobs.' }
+    if ($Command -notin @('env','smoke','eval','train','probe-smoke','probe')) { throw 'Dependencies apply only to submitted jobs.' }
+}
+if (-not $ExperimentConfig) {
+    $ExperimentConfig=if ($Command -in @('probe-smoke','probe')) {'configs/libero_control_probe.json'} else {'configs/libero_baseline.json'}
 }
 if (-not $ConfigPath) { $ConfigPath=Join-Path $PSScriptRoot 'remote.json' }
 $config=Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
@@ -34,7 +37,10 @@ latest=read('latest.json')
 keys=['phase','gradient_updates','wall_seconds','env_steps','chunk_transitions','episodes',
       'evaluation/total_episodes','evaluation/total_env_steps','evaluation/total_chunks',
       'evaluation/success_rate','evaluation/avg_episode_len','training/actor_loss',
-      'training/critic_loss','training/temperature','checkpoint']
+      'training/critic_loss','training/temperature','checkpoint',
+      'probe/cases_completed','probe/prefix_env_steps','probe/replay_env_steps',
+      'probe/continuation_env_steps','probe/vla_calls','probe/current_case',
+      'probe/replay_verified','probe/frozen_vla_unchanged']
 result={'directory':str(p),'run':read('run.json'),
         'metrics':{k:latest[k] for k in keys if k in latest}}
 for name in ['SUCCESS.json','FAILED.json']:
@@ -93,6 +99,10 @@ print(json.dumps(result,indent=2))
         if ($Command -eq 'doctor') { $script += 'python -u tools/check_env.py' }
         else { $script += 'bash tools/install-env.sh' }
     } else {
+        if ($Command -eq 'probe') {
+            if ($SmokeJobId -notmatch '^\d+$') { throw 'Probe requires a successful -SmokeJobId from probe-smoke.' }
+            $script += 'python -c '+(Quote-Bash ('import json; from pathlib import Path; p=Path("'+$config.DataRoot+'/runs/job-'+$SmokeJobId+'"); r=json.loads((p/"run.json").read_text()); s=json.loads((p/"SUCCESS.json").read_text()); assert r["commit"]=="'+$Commit+'" and r["mode"]=="probe-smoke" and s["passed"], (r,s)'))
+        }
         if ($Command -eq 'train') {
             if ($SmokeJobId -notmatch '^\d+$' -or $BaseJobId -notmatch '^\d+$') { throw 'Train requires -SmokeJobId and -BaseJobId.' }
             foreach ($gate in @($SmokeJobId,$BaseJobId)) {
@@ -102,7 +112,7 @@ print(json.dumps(result,indent=2))
         }
         $mode=$Command
         if ($mode -eq 'eval') { $mode=if ($RestorePath) {'eval'} else {'base'} }
-        $limit=if ($Command -in @('env','smoke')) {$config.Slurm.SmokeTime} elseif ($Command -eq 'eval') {$config.Slurm.EvalTime} else {$config.Slurm.TrainTime}
+        $limit=if ($Command -in @('env','smoke','probe-smoke')) {$config.Slurm.SmokeTime} elseif ($Command -in @('eval','probe')) {$config.Slurm.EvalTime} else {$config.Slurm.TrainTime}
         $script += 'mkdir -p '+(Quote-Bash ($config.DataRoot+'/logs/slurm'))+' '+(Quote-Bash ($config.DataRoot+'/runs'))
         $arguments=@('sbatch --parsable', ('--partition='+(Quote-Bash $config.Slurm.Partition)),
             ('--account='+(Quote-Bash $config.Slurm.Account)), ('--qos='+(Quote-Bash $config.Slurm.Qos)),

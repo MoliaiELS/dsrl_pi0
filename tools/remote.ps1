@@ -1,11 +1,11 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('doctor', 'install-env', 'sync', 'env', 'smoke', 'eval', 'train', 'status', 'logs')]
+    [ValidateSet('doctor', 'install-env', 'sync', 'env', 'smoke', 'eval', 'train', 'probe-smoke', 'probe', 'status', 'logs')]
     [string]$Command = 'doctor',
     [Parameter(Position=1)][string]$JobId='',
     [string]$ConfigPath = '', [string]$Commit='', [int]$Seed=0,
-    [string]$ExperimentConfig='configs/libero_baseline.json',
+    [string]$ExperimentConfig='',
     [string]$SmokeJobId='', [string]$BaseJobId='', [string]$RestorePath='',
     [string]$DependencyJobId=''
 )

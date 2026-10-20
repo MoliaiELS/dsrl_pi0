@@ -48,6 +48,10 @@ if [[ "$mode" == 'env' ]]; then
     python -u tools/sac_probe.py "$run_dir"
 else
     test -f "$DSRL_MODEL_PATH/download_manifest.json"
-    python -u -m tools.libero_run --mode "$mode" --config "$config" --seed "$seed" \
-        --output "$run_dir" --restore-path "$restore_path"
+    if [[ "$mode" == 'probe' || "$mode" == 'probe-smoke' ]]; then
+        python -u -m tools.control_probe --mode "$mode" --config "$config" --seed "$seed" --output "$run_dir"
+    else
+        python -u -m tools.libero_run --mode "$mode" --config "$config" --seed "$seed" \
+            --output "$run_dir" --restore-path "$restore_path"
+    fi
 fi

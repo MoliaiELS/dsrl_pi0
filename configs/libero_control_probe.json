@@ -1,0 +1,29 @@
+{
+  "task_suite": "libero_90",
+  "task_id": 57,
+  "model_config": "pi0_libero",
+  "resolution": 256,
+  "query_freq": 20,
+  "episode_budget": 400,
+  "prefix_steps": [0, 40],
+  "continuation_steps": 40,
+  "physics_atol": 1e-8,
+  "proprio_atol": 1e-7,
+  "action_atol": 1e-5,
+  "image_atol": 0,
+  "instructions": [
+    {"id": "original", "text": "{task}", "role": "original_goal"},
+    {"id": "paraphrase", "text": "place the cream cheese in the tray", "role": "goal_paraphrase"},
+    {"id": "pick", "text": "pick up the cream cheese", "role": "subgoal"},
+    {"id": "above_tray", "text": "move the cream cheese above the tray", "role": "subgoal"},
+    {"id": "regrasp", "text": "grasp the cream cheese again and place it in the tray", "role": "recovery_candidate"},
+    {"id": "conflicting", "text": "put the cream cheese on the table", "role": "conflicting_goal_control"}
+  ],
+  "noise_conditions": [
+    {"id": "zero", "kind": "zero_repeat", "seed": 101},
+    {"id": "bounded_a", "kind": "uniform_repeat", "seed": 101},
+    {"id": "bounded_b", "kind": "uniform_repeat", "seed": 102},
+    {"id": "gaussian_repeat", "kind": "gaussian_repeat", "seed": 101},
+    {"id": "gaussian_full", "kind": "gaussian_full", "seed": 101}
+  ]
+}
