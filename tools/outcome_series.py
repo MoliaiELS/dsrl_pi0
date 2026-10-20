@@ -49,6 +49,7 @@ def run_series(args, config, folder, protocol_path):
                 'continuation_env_steps', 'settling_env_steps', 'vla_calls', 'controller_calls',
                 'states_built', 'validation_rollouts']
         counts = {'probe/' + k: 0 for k in keys}
+        current_case = 'starting'
         resources = []
         for stage in stages:
             directory = folder / stage['id']
@@ -56,13 +57,14 @@ def run_series(args, config, folder, protocol_path):
             for key in counts:
                 counts[key] += latest.get(key, 0)
             if stage['id'] == current:
-                counts['probe/current_case'] = latest.get('probe/current_case', latest.get('phase', 'starting'))
+                current_case = latest.get('probe/current_case', latest.get('phase', 'starting'))
             samples = directory / 'resources.jsonl'
             if samples.exists():
                 resources.extend(dict(json.loads(line), stage=stage['id'])
                                  for line in samples.read_text().splitlines() if line.strip())
         event = {'phase': phase, 'gradient_updates': 0, 'time_unix': time.time(),
                  'wall_seconds': time.monotonic() - started, **counts, 'probe/cases_planned': planned,
+                 'probe/current_case': current_case,
                  'workflow/current_stage': current, 'workflow/stages_completed': len(completed),
                  'workflow/stages_planned': len(stages)}
         write_json(folder / 'latest.json', event)
