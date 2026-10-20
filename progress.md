@@ -1,8 +1,30 @@
 # DSRL π₀ / LIBERO 基线进度
 
-更新时间：2026-10-20（Asia/Shanghai）。本文件记录事实状态；提交成功不等于运行成功。
+更新时间：2026-10-21（Asia/Shanghai）。本文件记录事实状态；提交成功不等于运行成功。
 
-## 当前检查：继续定位 node2 GPU 3 CUDA 故障（2026-10-20 23:28；进行中）
+## 当前状态：C2 短测 18242 已 pending，成功后由远端自动提交正式评估（2026-10-21 00:02）
+
+- 用户要求若仍不通就先提交 pending。已停止继续扩展本轮 GPU／EGL 适配，将尚未通过完整仿真验证的 UUID／EGL 绑定从 `tools/job.sh` 撤下。**当前运行版本 `6ecd08041bbb3da151e67315bd97855446b370f8`** 已推送并同步独立 worktree；项目入口、`recovery_probe.py`、`outcome_probe.py` 和 C2 v2 配置与原 `5bbbb4c` 逐文件 diff 为空，保留已修复的共同持物稳定前缀，未改变控制器或物理阈值。UUID／EGL 工具留作实验性诊断，不能称完整环境已修好。
+- **18242：C2 v2 短测，PENDING(Resources)**，单张 4090／8 CPU、20 分钟上限，排除 node1／node2，等待 `4090node3`。40 主分支＋2 重复，覆盖全部开发 seed 20–24。00:02 调度器暂估 **10 月 21 日 11:51:53** 启动，仅是可变估计。不会在登录节点继续运行模型测试。
+- 直接补交正式依赖作业两次被 `AssocMaxSubmitJobLimit` 拒绝：活动队列只有 18242，但 `scontrol show assoc_mgr` 对本用户记录 `MaxSubmitJobs=2(2)`。这是观察到的控制器计数／额度问题，未修改调度配置。**正式评估目前尚无 Slurm job ID，不可写成已提交／运行中**。
+- 已启动轻量远端等待器 **PID 3729012**，在登录节点仅等待／读取状态，**每 5 分钟检查一次，无 GPU 工作，不依赖持续 SSH 会话**。18242 的 SUCCESS、同 commit 和同协议 SHA256 全部通过后才提交 120 主分支＋2 重复的正式评估；正式作业仍在计算节点执行，且 `job.sh` 再检查该成功门禁。提交额度未释放时每 5 分钟重试；短测失败／取消／超时则停止并记录原因。具有文件锁、唯一作业名和提交记录，避免重复；等待总时限 48 小时。
+- 等待器源码 `tools/submit_after_smoke.py` 已提交 **`e85d62c9cc8b6b5139416f75c6dd1a8b2b880298`** 并推送；实验代码仍固定为 `6ecd080`。远端 `runs/workflow-18242/` 包含 `plan.json`、源码副本／SHA256、`launcher.sh`、`launcher.pid`、`launcher.log`、`launcher_status.json`；正式接受提交后生成 **`formal_submission.json`（含新 job ID）**，失败则写 `STOPPED.json`。4 项只读门禁检查通过：真实成功短测接受、pending 等待、commit 不匹配拒绝、真实失败短测拒绝，均未提交测试作业。已核对进程在运行并记录 `waiting_for_smoke / PENDING`。
+- 所有已完成 **18196 的 300 主分支＋6 重复**保持有效且不重跑。本轮新短测未产出任何 C2 结果；新正式评估未启动、未训练。旧 18238 为 UUID 渲染解析失败、18239 被依赖取消；18240 为 EGL 预检失败、18241 被依赖取消；它们均不是待运行实验。实际待执行链现在以 **18242＋workflow-18242 等待器** 为准。
+
+## GPU UUID 验证与 EGL 短调试（2026-10-20 23:49；历史）
+
+- 校园网／VPN 恢复后重新连接。18234／18235 深入诊断分别在不支持的查询字段和被截断的 XML 报告解析处提前退出；这是诊断脚本问题，未执行实验分支。修正并保留完整报告后，**18236 COMPLETED/0，3 秒**：原始 CUDA Driver API `cuInit(0)` 返回 100（`CUDA_ERROR_NO_DEVICE`），batch／srun／PCI 排序均复现；所分配 `/dev/nvidia3`、control、uvm 可正常读写，实际使用系统 `libcuda.so.580.178.04`。
+- **18237 COMPLETED/0，12 秒**：同一 Slurm 分配 `SLURM_JOB_GPUS=3`，保留数字引用时 `cuInit=100`；仅将该分配卡精确引用为其 NVML UUID 后 **cuInit=0、CUDA 设备数=1、PCI `0000:CA:00.0` 与分配一致**。JAX 和 TensorFlow 后 JAX 均成功完成 GPU 小计算 `sum(arange(8))=28`。因此 GPU 3 本身可执行 CUDA，已找到用户权限内的可见性修复；数字索引失效的驱动／枚举内部原因未进一步断言，未重装依赖、修改驱动或选择未分配 GPU。
+- 资源快照同时显示 node2 分配卡已有其他进程占用 **21,258 MiB**，仅余 **2,824 MiB**，不足本项目实测约 9 GiB 的显存需求。可见性修复不等于显存资源释放；当前仍避免在该卡启动 VLA，不终止他人进程。
+- 修复提交 **`8186209fb0756fc3667f1906a2e0bada580a037c`** 已推送并同步独立 worktree，子模块锁不变。新增 `tools/slurm_gpu.py`：先核对本集群 `GRES File=/dev/nvidia[0-3]` 映射，按所分配 device-file minor 解析唯一 UUID，再用独立 CUDA 子进程核对只见一张卡且 PCI 身份一致，之后作业才加载模型。`gpu_binding.json` 记录原 Slurm 可见值、实际 UUID／minor／PCI、显存和验证结果；不按 NVML ordinal 猜测、不扩大可见范围。`tools/job.sh` 接入该步骤，算法、checkpoint 和 C2 v2 协议不变。
+- 新增 `tools/test_slurm_gpu.py` **CPU 6/6 通过（0.001 秒）**：minor 与 NVML ordinal 不同时仍选择分配卡，支持 cgroup 相对编号／已有同 UUID，拒绝冲突或扩大可见范围、缺失／多卡分配、模糊身份及不匹配 GRES 映射。固定入口 sync 的语法／编译检查通过，未重装环境。
+- 已主动取消尚未开始的旧版本 **18210**（18211 之前已为诊断腾名额取消），替换为同新 commit 的 **18238 C2 v2 短测 → 18239 C2 v2 正式试点**。18238 只在 `4090node1` 做 **20 分钟上限的短调试**，符合登录节点不超过 30 分钟的约定；正式 18239 仍排除 node1／node2、申请计算节点单 4090／8 CPU。短测为 **40 主分支＋2 重复**，正式为 **120 主分支＋2 重复**，仅补 C2、不重跑已完成 300 确认分支。
+- 23:49 核对 **18238 RUNNING(4090node1)，18239 PENDING(Dependency)**。18238 的正式入口 UUID 绑定与 PCI 检查已通过，选定卡在启动时有 **24,065 MiB** 空闲，所有源码导入指向新固定 worktree，已进入冻结 VLA 加载；**完整 C2 短测尚未通过，不能称为新的恢复结果**。18239 已设置 `afterok:18238`、无效依赖自动取消与同 commit／同协议 SHA256 的运行时门禁；会话断开后可自动继续，用户已允许资源不足时保留 pending。
+- **23:50 启动检查**：18238 已记录 `frozen_vla_loaded`（启动后约 96 秒），继续加载原冻结噪声控制器；梯度更新为 0，没有 CUDA 初始化错误。完整物理构造／延续短测仍待结果。工作流摘要 `runs/c2-uuid-workflow-18239.json` 与两份提交资源配置另存远端；本地副本 `tmp/c2-uuid-18239/`。
+- 随后核对 **18238 FAILED/1，2:12；18239 自动 CANCELLED**：VLA／噪声控制器已加载，但 robosuite 的 EGL 初始化把 `CUDA_VISIBLE_DEVICES=GPU-...` 按整数解析，任何 C2 前缀／结果分支开始前退出。补充 `MUJOCO_EGL_DEVICE_ID` 并按 DRM／PCI 匹配 EGL 的尝试提交 `262b97b`，CPU 身份检查扩至 **8/8 通过**；**18240 仍 FAILED/1，3 秒，18241 自动 CANCELLED**，预检在所选 DRM EGL 设备打开时报告权限拒绝。尚未验证 NVIDIA EGL backend 的正确选择，不能据此断言 GPU 硬件故障或整个节点没有渲染权限。用户要求先 pending 后，`6ecd080` 已撤下入口集成，按顶部当前方案继续。
+- 证据目录：远端 `runs/job-18236/diagnostic.json`、`runs/job-18237/diagnostic.json`、`runs/job-18238/gpu_binding.json`，本地 `tmp/gpu-deep-18236/`、`tmp/gpu-uuid-18237/`。新配置为本地忽略目录 `tmp/remote-short-node1.json`（仅短调试）和 `tmp/remote-gpu-fallback.json`（长评估）；后续不再等待已取消的 18210／18211。
+
+## node2 GPU 3 CUDA 故障的深入诊断启动（2026-10-20 23:28；历史，网络已恢复）
 
 - 用户要求进一步尝试修复，而非仅排除节点。此前 18209 只证明同分配下独立 JAX 也失败，尚未区分 GPU 健康、Slurm／CUDA 编号、cgroup 权限或驱动库；整节点排除只是临时绕行，不能据此断言需要管理员或难以修复。
 - 为遵守账户 MaxJobs=1／MaxSubmitJobs=2，已明确取消**尚未启动的 18211**，腾出名额提交 **18234 `dsrl-gpu-deep`**：限定 `4090node2`、Slurm 分配单张 4090、2 CPU、4 分钟，只诊断设备，不加载 VLA、不训练。原短测 **18210 保留**；**正式评估链目前需要在诊断后重新提交，不能沿用此前“18211 会自动启动”的状态**。
@@ -207,11 +229,11 @@
 - 固定 LIBERO-90 task 57：拿起奶油奶酪并放入托盘。
 - 冻结 `s3://openpi-assets/checkpoints/pi0_libero`；训练官方 DSRL-SAC 潜噪声控制器。
 - seed 0／1／2 的训练及最终控制器独立终评均已完成；E0／E1 首轮正常状态可控性探针也已完成。
-- 完整后续回合与 C1 共同状态探针 18166、保留 seed 确认和三控制器复核 18196 的前三阶段已完成。仅 C2 试点待补；18210 短测保留，18211 为提交深入 GPU 诊断 18234 而主动取消，正式评估需在网络恢复、读取诊断后重新提交。Instruction RL／Joint RL 的学习必要性仍待验证。
+- 完整后续回合与 C1 共同状态探针 18166、保留 seed 确认和三控制器复核 18196 的前三阶段已完成。仅 C2 试点待补；按用户要求恢复原环境入口，18242 在计算节点 pending，远端等待器会在短测成功后自动提交正式试点。Instruction RL／Joint RL 的学习必要性仍待验证。
 
 ## 扩展计划：多任务、OOD 与受扰恢复（2026-10-19 纳入）
 
-**状态：E0／E1 首轮正常状态工具与 60 组合探针、完整任务 C0／C1 的 360 分支评估、18196 的 300 分支保留确认／控制器复核均已完成；C2 v2 短测 18210 保留，GPU 诊断 18234 已提交、结果因 SSH 超时尚未读取，正式试点需重新提交；C3、E2 跨任务、E3／E5 新训练未开展。** 保持 LIBERO + 同一冻结 `pi0_libero` 为主线，后续顺序以顶部运行状态及综合证据分析为准。共享训练、跨任务迁移与未见偏移恢复仍是后续问题；互补性与泛化收益均待验证。
+**状态：E0／E1 首轮正常状态工具与 60 组合探针、完整任务 C0／C1 的 360 分支评估、18196 的 300 分支保留确认／控制器复核均已完成；C2 v2 短测 18242 pending，正式试点由远端等待器在短测成功、额度允许后自动提交；C3、E2 跨任务、E3／E5 新训练未开展。** 保持 LIBERO + 同一冻结 `pi0_libero` 为主线，后续顺序以顶部运行状态及综合证据分析为准。共享训练、跨任务迁移与未见偏移恢复仍是后续问题；互补性与泛化收益均待验证。
 
 ### 推进顺序与启动条件
 
@@ -278,7 +300,7 @@ E0／E1 是优先项，E2 提供低成本的跨任务证据。E3 与 E4 是两�
 | E0／E1 正常状态可控性探针 | 已完成 18158／18160 | 60 组合完成；重放误差 0，重复延续／冻结输出一致；接口有响应，但 40 步片段均未完成任务 |
 | 完整结果／C1 扰动探针 | 18165／18166 均已完成 | 360 回合；原指令＋DSRL 27/30，重抓／子目标＋DSRL 各 30/30；开发证据，无新训练 |
 | 保留确认／控制器复核 | 18196 前三阶段已完成 | 300 主分支＋6 重复有效，跨控制器共同状态一致；C2 构造失败不重跑这些结果 |
-| C2 持物／掉落恢复试点 | 18210 保留，正式评估待恢复提交 | 18211 为 GPU 诊断 18234 主动取消；SSH 超时阻断诊断结果读取和后续提交。v2 为 40＋2 短测、120＋2 正式评估，保留原物理阈值 |
+| C2 持物／掉落恢复试点 | 18242 pending，远端等待器已启动 | 原环境入口＋v2 持物前缀；40＋2 短测通过后自动提交 120＋2 正式评估；UUID／EGL 适配未接入实验入口 |
 | 多任务／OOD／学习式选择器 | 后续计划，未启动训练 | C3、E2／E3／E5 未开展；进入条件见顶部综合证据分析 |
 
 阶段区别：`18044` 是已通过的 16 次更新短测试；`18045` 是正式训练前的 Base 评估；后续正式训练才会先采集 warmup replay、再交替采集与更新 SAC 噪声控制器。三个阶段都使用冻结 VLA，只有短测试和正式训练更新 SAC。
@@ -316,9 +338,9 @@ E0／E1 是优先项，E2 提供低成本的跨任务证据。E3 与 E4 是两�
 
 ## 下次对话
 
-先读取本文件顶部，**优先恢复 SSH 并读取深入 GPU 诊断 18234**，再检查保留的 C2 v2 短测 18210。**18211 已主动取消，不能再等待它自动展开**；诊断完成后必须补回正式评估提交。若不需变更运行版本，可复用原 18210 的同 commit／同协议门禁；若环境或代码修复影响运行，则按新固定版本先短测再接依赖正式评估。检查账户现有作业，避免超过 MaxSubmitJobs=2 或重复提交。
+先读取本文件顶部，**优先检查 C2 v2 短测 18242 和 `runs/workflow-18242/` 远端等待器**，不要重复提交。先读 `launcher_status.json`、`formal_submission.json`（若已生成则含正式 job ID）与 `STOPPED.json`（若存在），再核对相关 Slurm 状态及 SUCCESS／FAILED。正式 job ID 不能沿用 18239／18241。等待器每 5 分钟检查，等待上限 48 小时，具有文件锁和防重复记录；确认其状态前不要启动第二个等待器或手动重复正式提交。当前实验代码为 `6ecd080`，等待器代码为 `e85d62c`，原入口未启用实验性 UUID／EGL 适配。
 
-18196 整体 FAILED，但 `seed0/`、`seed1/`、`seed2/` 的 300 主分支＋6 重复已成功完成、有效且不重跑；失败的是尚未进入结果回合的 C2 状态构造，已修复共用持物稳定前缀。18207 另遇 `4090node2/GPU 3` 无可见 CUDA 设备，18208 自动取消；18209 独立诊断已复现，18234 正进一步区分设备、库、编号与权限。18195 的旧 v1 C2 短测不能代替新版全开发 seed 物理验证。新正式评估成功后核对 SUCCESS／FAILED、gate_check、common_states/manifest、outcome_summary 与 cases；若失败先读 FAILED 和日志，不覆盖旧目录，不放宽物理阈值绕过检查。
+18196 整体 FAILED，但 `seed0/`、`seed1/`、`seed2/` 的 300 主分支＋6 重复已成功完成、有效且不重跑；失败的是尚未进入结果回合的 C2 状态构造，已修复共用持物稳定前缀。18236／18237 已证明 node2 数字编号不可见可用已分配 GPU 的 UUID 绕过，但完整 EGL 适配未通过，node2 该卡显存也不足；相关诊断不等于完整实验入口修复。18238／18240 失败及 18239／18241 自动取消均已留档。18195 的旧 v1 C2 短测不能代替新版全开发 seed 物理验证。新正式评估成功后核对 SUCCESS／FAILED、gate_check、common_states/manifest、outcome_summary 与 cases；若失败先读 FAILED 和日志，不覆盖旧目录，不放宽物理阈值绕过检查。
 
 完整任务结果探针 **18166 已 COMPLETED/0、SUCCESS**，360 回合与分析均已完成；无需重跑。结果目录 `runs/job-18166`，分析 `outcome_analysis.json`／`research_evidence.json`，本地 `tmp/outcome-18166/`。首轮短片段 18160、完整预算短测 18165 也已完成。
 
@@ -329,9 +351,10 @@ E0／E1 是优先项，E2 提供低成本的跨任务证据。E3 与 E4 是两�
 独立确认后，再增加扰动时点／强度与失败状态，检查是否存在不同状态需要不同候选的证据，再考虑最小 Instruction RL／Joint RL 和等交互预算比较；固定提示已足够时保留简单方案，不为训练选择器而预设必要性。当前只有抓取前轻微位移的开发证据，不称为 OOD 提升，也不直接提交共享多任务训练。
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/remote.ps1 status 18210
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/remote.ps1 status 18234
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/remote.ps1 logs 18234
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/remote.ps1 status 18242
+ssh idac_sever "cat /mnt/slurmfs-4090node3/user_data/yguo704/dsrl_pi0/runs/workflow-18242/launcher_status.json"
+# 正式提交成功后，下列文件给出新 job ID：
+ssh idac_sever "cat /mnt/slurmfs-4090node3/user_data/yguo704/dsrl_pi0/runs/workflow-18242/formal_submission.json"
 ```
 
 训练每 50,000 次更新保存 checkpoint，时限 24 小时。会话／SSH 断开不影响 Slurm 运行。若失败或超时，先读 FAILED.json 和日志；当前没有 replay／模拟器状态的完整续训能力，不应直接宣称可无损恢复训练。

@@ -1,4 +1,7 @@
-"""Bind this cluster's single-GPU Slurm allocation by verified device identity.
+"""Experimental binding diagnostic; deliberately not integrated into job.sh.
+
+CUDA UUID identity checks pass, but full EGL backend selection is unresolved.
+Bind this cluster's single-GPU Slurm allocation by verified device identity.
 
 GRES uses File=/dev/nvidia[0-3]. Its allocation index therefore identifies the
 device-file minor, which need not equal CUDA's numeric enumeration. No other
