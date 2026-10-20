@@ -43,7 +43,8 @@ keys=['phase','gradient_updates','wall_seconds','env_steps','chunk_transitions',
       'probe/continuation_env_steps','probe/vla_calls','probe/current_case',
       'probe/replay_verified','probe/frozen_vla_unchanged','probe/controller_unchanged',
       'probe/cases_planned','probe/cases_successful','probe/states_built',
-      'probe/settling_env_steps','probe/controller_calls','probe/validation_rollouts']
+      'probe/settling_env_steps','probe/controller_calls','probe/validation_rollouts',
+      'workflow/current_stage','workflow/stages_completed','workflow/stages_planned']
 result={'directory':str(p),'run':read('run.json'),
         'metrics':{k:latest[k] for k in keys if k in latest}}
 for name in ['SUCCESS.json','FAILED.json']:

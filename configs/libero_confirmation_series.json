@@ -1,0 +1,10 @@
+{
+  "kind": "outcome_series",
+  "split": "held-out reset seeds 100-109; controller seeds 0/1/2; smoke uses development seed 10 only",
+  "require_common_states": true,
+  "stages": [
+    {"id": "seed0", "config": "configs/libero_confirm_seed0.json"},
+    {"id": "seed1", "config": "configs/libero_confirm_seed1.json"},
+    {"id": "seed2", "config": "configs/libero_confirm_seed2.json"}
+  ]
+}

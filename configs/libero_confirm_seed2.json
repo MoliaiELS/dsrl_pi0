@@ -1,0 +1,133 @@
+{
+  "task_suite": "libero_90",
+  "task_id": 57,
+  "model_config": "pi0_libero",
+  "resolution": 256,
+  "query_freq": 20,
+  "episode_budget": 400,
+  "reference_prefix_steps": 20,
+  "settle_steps": 4,
+  "intervention_steps": 40,
+  "reset_seeds": [
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109
+  ],
+  "reserved_test_reset_seeds": [
+    200,
+    201,
+    202,
+    203,
+    204,
+    205,
+    206,
+    207,
+    208,
+    209
+  ],
+  "noise_seed_base": 73000,
+  "target_object": "cream_cheese_1",
+  "support_body": "living_room_table",
+  "physics_atol": 1e-8,
+  "proprio_atol": 1e-7,
+  "action_atol": 0.00001,
+  "image_atol": 0,
+  "penetration_tolerance_m": 0.001,
+  "offset_tolerance_m": 0.005,
+  "height_tolerance_m": 0.005,
+  "max_settled_speed_mps": 0.05,
+  "ik_screen_height_m": 0.08,
+  "ik_screen_tolerance_m": 0.01,
+  "controller": {
+    "run_dir": "runs/job-18123",
+    "checkpoint_step": 500000,
+    "training_seed": 2
+  },
+  "conditions": [
+    {
+      "id": "C0",
+      "offset_m": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "C1_plus_x",
+      "offset_m": [
+        0.03,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "C1_minus_x",
+      "offset_m": [
+        -0.03,
+        0,
+        0
+      ]
+    }
+  ],
+  "instructions": [
+    {
+      "id": "original",
+      "text": "{task}",
+      "role": "original_goal"
+    },
+    {
+      "id": "regrasp",
+      "text": "grasp the cream cheese again and place it in the tray",
+      "role": "recovery_candidate"
+    }
+  ],
+  "noise_modes": [
+    "dsrl"
+  ],
+  "noise_conditions": [],
+  "smoke_eval_reset_seeds": [
+    10
+  ],
+  "smoke_pairs": [
+    [
+      "original",
+      "dsrl"
+    ],
+    [
+      "regrasp",
+      "dsrl"
+    ]
+  ],
+  "repeat_validation_reset_seeds": [
+    10,
+    100
+  ],
+  "video_reset_seeds": [
+    10,
+    100
+  ],
+  "video_stride": 2,
+  "split": "held-out fixed-prompt confirmation; prompts and duration locked before reset seeds 100-109",
+  "development_reset_seeds": [
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19
+  ],
+  "smoke_reset_seeds": [
+    10
+  ]
+}

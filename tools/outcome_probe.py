@@ -40,7 +40,7 @@ class OutcomeProbe(Probe):
         assert source.is_relative_to(data_root), source
         source_cfg = json.loads((source / 'config.json').read_text())
         assert json.loads((source / 'SUCCESS.json').read_text())['passed']
-        assert source_cfg['mode'] == 'train' and source_cfg['seed'] == 0
+        assert source_cfg['mode'] == 'train' and source_cfg['seed'] == config['controller'].get('training_seed', 0)
         assert source_cfg['task_id'] == config['task_id'] and source_cfg['task_suite'] == config['task_suite']
         expected_step = config['controller']['checkpoint_step']
         checkpoint = checkpoints.latest_checkpoint(str(source), prefix='checkpoint')
@@ -59,6 +59,7 @@ class OutcomeProbe(Probe):
         self.controller_fingerprint = self.fingerprint()
         record = json.loads((directory / 'run.json').read_text())
         record.update(controller_checkpoint=str(checkpoint), controller_training_updates=expected_step,
+                      controller_training_seed=source_cfg['seed'],
                       controller_fingerprint=self.controller_fingerprint,
                       controller_source_run=json.loads((source / 'run.json').read_text()))
         write_json(directory / 'run.json', record)
@@ -244,7 +245,7 @@ class OutcomeProbe(Probe):
         write_json(folder / 'manifest.json', {'states': self.state_manifest,
                    'method': 'seeded reset, recorded prefix, recorded offset, zero target velocity, common settling',
                    'C0': 'zero-offset sham, same velocity reset and settling as C1',
-                   'scope': 'development states; no OOD claim'})
+                   'scope': self.cfg.get('split', 'development states; no OOD claim')})
         return states
 
     def replay_outcome(self, state):
@@ -391,7 +392,7 @@ class OutcomeProbe(Probe):
                 result, arrays = self.rollout(state, instructions[instruction_id], mode)
                 if (instruction_id == 'original' and mode == 'dsrl' and
                         state['reset_seed'] in self.cfg['repeat_validation_reset_seeds'] and
-                        state['condition']['id'] in ['C0', 'C1_plus_x']):
+                        state['condition']['id'] in self.cfg.get('repeat_validation_conditions', ['C0', 'C1_plus_x'])):
                     again, repeated = self.rollout(state, instructions[instruction_id], mode, save=False)
                     np.testing.assert_allclose(arrays['executed_actions'], repeated['executed_actions'], rtol=0, atol=self.cfg['action_atol'])
                     np.testing.assert_allclose(arrays['final_physics'], repeated['final_physics'], rtol=0, atol=self.cfg['physics_atol'])
@@ -402,7 +403,7 @@ class OutcomeProbe(Probe):
         np.testing.assert_allclose(actions, expected, rtol=0, atol=self.cfg['action_atol'])
         assert self.fingerprint() == self.controller_fingerprint, 'Controller state changed during inference'
         assert self.counts['cases_completed'] == self.counts['cases_planned']
-        summary = {'scope': 'development paired task-outcome evaluation; fixed interventions, not Instruction RL or Joint RL',
+        summary = {'scope': self.cfg.get('split', 'development') + '; fixed interventions, not Instruction RL or Joint RL',
                    'gradient_updates': 0, 'counts': self.counts, **self.aggregate(),
                    'max_replay_errors': {k: max(e[k] for e in self.restore_errors) for k in self.restore_errors[0]},
                    'controller_unchanged': True, 'frozen_vla_output_unchanged': True,
@@ -424,7 +425,16 @@ def main():
     folder.mkdir(parents=True, exist_ok=True)
     protocol_path = Path(args.config)
     cfg = json.loads(protocol_path.read_text())
+    if cfg.get('kind') == 'outcome_series':
+        from tools.outcome_series import run_series
+        run_series(args, cfg, folder, protocol_path)
+        return
     cfg.update(seed=args.seed, mode=args.mode)
+    if args.mode == 'outcome-smoke' and 'smoke_reset_seeds' in cfg:
+        cfg['planned_reset_seeds'] = cfg['reset_seeds']
+        cfg['reset_seeds'] = cfg['smoke_reset_seeds']
+        cfg['planned_split'] = cfg.get('split', 'development')
+        cfg['split'] = 'development smoke; confirmation states not evaluated'
     assert cfg['intervention_steps'] % cfg['query_freq'] == 0
     assert cfg['reference_prefix_steps'] > 0 and cfg['settle_steps'] > 0
     assert cfg['reference_prefix_steps'] + cfg['settle_steps'] + cfg['intervention_steps'] < cfg['episode_budget']
@@ -433,7 +443,7 @@ def main():
     assert len(set(cfg['reset_seeds'])) == len(cfg['reset_seeds'])
     assert len({i['id'] for i in cfg['instructions']}) == len(cfg['instructions'])
     assert len({c['id'] for c in cfg['conditions']}) == len(cfg['conditions'])
-    assert set(cfg['noise_modes']) == {'base', 'bounded_random', 'dsrl'}
+    assert 'dsrl' in cfg['noise_modes'] and set(cfg['noise_modes']) <= {'base', 'bounded_random', 'dsrl'}
     if args.mode == 'outcome-smoke':
         cfg.update(eval_reset_seeds=cfg['smoke_eval_reset_seeds'], eval_pairs=cfg['smoke_pairs'])
     else:
@@ -451,7 +461,8 @@ def main():
         'cuda_visible_devices': os.environ.get('CUDA_VISIBLE_DEVICES'),
         'model_source': 's3://openpi-assets/checkpoints/pi0_libero', 'model_path': os.environ['DSRL_MODEL_PATH'],
         'learning': False, 'protocol_file_sha256': hashlib.sha256(protocol_path.read_bytes()).hexdigest(),
-        'split': 'development; reserved test seeds are not evaluated',
+        'split': ('development smoke; confirmation states not evaluated' if args.mode == 'outcome-smoke'
+                  and 'smoke_reset_seeds' in cfg else cfg.get('split', 'development; reserved test seeds are not evaluated')),
         'common_state_method': 'seeded fresh reset, recorded actions, recorded offset and common settling'})
     logger = RunLogger(folder)
     try:
