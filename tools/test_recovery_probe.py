@@ -25,6 +25,7 @@ class ReferenceStabilization(unittest.TestCase):
                                      output_min=-np.array([.05] * 3 + [.5] * 3),
                                      output_max=np.array([.05] * 3 + [.5] * 3), goal_pos=np.zeros(3))
         env = SimpleNamespace(sim=SimpleNamespace(data=data), closed=False,
+                              env=SimpleNamespace(control_timestep=.05),
                               robots=[SimpleNamespace(controller=controller)])
 
         def step(action):
@@ -39,6 +40,8 @@ class ReferenceStabilization(unittest.TestCase):
                      'reference_grasp_hold_steps': 3, 'reference_stabilize_steps': 3,
                      'reference_stabilize_max_steps': 8, 'episode_budget': 400,
                      'min_remaining_steps': 200, 'settle_steps': 20,
+                     'max_sham_displacement_m': .015,
+                     'reference_speed_measure': 'control_interval_displacement',
                      'max_reference_speed_mps': .02, 'controller': {'run_dir': 'fixture'}}
         probe.counts = {'prefix_env_steps': 0}
         probe.directory = Path(temp.name)
@@ -53,6 +56,10 @@ class ReferenceStabilization(unittest.TestCase):
         def events(*_):
             held = bool(actions) and not (lose_grasp and len(actions) > 3)
             pos = [0, 0, .445] if not actions else [.1, 0, .5]
+            if len(actions) > 3:
+                values = [speed] * (len(actions) - 3) if speeds is None else [
+                    speeds[min(i, len(speeds) - 1)] for i in range(len(actions) - 3)]
+                pos[0] += .05 * sum(values)
             return {'position': np.array(pos), 'grasped': held, 'success': False}
 
         probe.events = events
@@ -92,6 +99,27 @@ class ReferenceStabilization(unittest.TestCase):
         env.robots[0].controller.use_delta = False
         with self.assertRaisesRegex(AssertionError, 'delta OSC_POSE'):
             probe.position_hold_action(env, np.zeros(3), 1)
+
+    def test_contact_velocity_jitter_is_logged_separately_from_observed_motion(self):
+        probe, env, _ = self.fixture()
+        env.sim.data.get_joint_qvel = lambda _: np.array([.03, 0, 0, 0, 0, 0])
+        probe.prefix(21)
+        record = json.loads((probe.directory / 'reference_prefixes/seed021.json').read_text())
+        self.assertEqual(record['speed_measure'], 'control_interval_displacement')
+        self.assertEqual(record['stabilization_tail'][-1]['linear_speed_mps'], 0)
+        self.assertEqual(record['stabilization_tail'][-1]['instantaneous_linear_speed_mps'], .03)
+
+    def test_position_motion_cannot_pass_due_to_a_low_instantaneous_sample(self):
+        probe, env, _ = self.fixture(speed=.1)
+        env.sim.data.get_joint_qvel = lambda _: np.zeros(6)
+        with self.assertRaisesRegex(AssertionError, 'Reference still moving'):
+            probe.prefix(21)
+
+    def test_large_window_motion_cannot_pass_on_three_quiet_endpoint_samples(self):
+        probe, env, _ = self.fixture(speeds=[0, .4, 0, 0, 0])
+        probe.cfg.update(reference_stabilize_steps=5, reference_stabilize_max_steps=5)
+        with self.assertRaisesRegex(AssertionError, 'window span=0.020000'):
+            probe.prefix(21)
 
     def test_reference_still_moving_is_rejected(self):
         probe, env, actions = self.fixture(speed=.1)

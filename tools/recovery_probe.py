@@ -67,6 +67,10 @@ class RecoveryProbe(OutcomeProbe):
                     budget_cap = (self.cfg['episode_budget'] - self.cfg['min_remaining_steps']
                                   - self.cfg['settle_steps'] - trigger_steps)
                     maximum = min(requested_maximum, budget_cap)
+                    assert self.cfg['reference_speed_measure'] == 'control_interval_displacement'
+                    timestep = float(env.env.control_timestep)
+                    assert timestep > 0
+                    previous_position = event['position'].copy()
                     assert 0 < window <= minimum <= maximum, (
                         f'Insufficient stabilization budget for seed {seed}: '
                         f'min={minimum}, max={maximum}, remaining_cap={budget_cap}')
@@ -80,14 +84,20 @@ class RecoveryProbe(OutcomeProbe):
                         assert not done, f'Reference stabilization completed goal for seed {seed}'
                         event = self.events(env, initial[2])
                         velocity = env.sim.data.get_joint_qvel(self.target(env).joints[0])
+                        interval_speed = float(np.linalg.norm(event['position'] - previous_position) / timestep)
+                        previous_position = event['position'].copy()
                         settling.append({'grasped': event['grasped'],
-                                         'linear_speed_mps': float(np.linalg.norm(velocity[:3])),
+                                         'linear_speed_mps': interval_speed,
+                                         'instantaneous_linear_speed_mps': float(np.linalg.norm(velocity[:3])),
                                          'target_position_m': event['position'].tolist(),
                                          'eef_position_m': self.eef_position(env).tolist()})
                         tail = settling[-window:]
+                        positions = np.asarray([sample['target_position_m'] for sample in settling[-minimum:]])
+                        position_span = float(np.linalg.norm(positions[:, None] - positions[None, :], axis=-1).max())
                         stable_hold = (len(tail) == window and all(s['grasped'] for s in tail)
                                        and max(s['linear_speed_mps'] for s in tail)
-                                       <= self.cfg['max_reference_speed_mps'])
+                                       <= self.cfg['max_reference_speed_mps']
+                                       and position_span <= self.cfg['max_sham_displacement_m'])
                         if len(settling) >= minimum and stable_hold:
                             break
                     folder = self.directory / 'reference_prefixes'
@@ -97,12 +107,15 @@ class RecoveryProbe(OutcomeProbe):
                             'reset_seed': seed, 'trigger_env_steps': trigger_steps,
                             'stabilization_env_steps': len(settling), 'stabilization_maximum': maximum,
                             'fixed_eef_goal_m': hold_position.tolist(),
+                            'speed_measure': self.cfg['reference_speed_measure'],
+                            'control_timestep_s': timestep, 'position_window_span_m': position_span,
                             'stabilization_samples': settling, 'prefix_env_steps': len(actions_out)})
                         self.log('reference_stabilization_failed', **{
                             'probe/current_case': f'reference_seed{seed:03d}',
                             'probe/reference_stabilization_steps': len(settling)})
                         assert all(s['grasped'] for s in tail), f'Unstable held reference for seed {seed}: {tail}'
-                        raise AssertionError(f'Reference still moving for seed {seed} after {maximum} steps: {tail}')
+                        raise AssertionError(f'Reference still moving for seed {seed} after {maximum} steps; '
+                                             f'window span={position_span:.6f} m: {tail}')
                     write_json(folder / f'seed{seed:03d}.json', {
                         'reset_seed': seed, 'env_steps': len(actions_out),
                         'trigger_env_steps': trigger_steps, 'stabilization_env_steps': len(settling),
@@ -110,6 +123,8 @@ class RecoveryProbe(OutcomeProbe):
                         'stabilization_budget_cap': budget_cap, 'stable_hold_window': window,
                         'stabilization_samples': settling,
                         'fixed_eef_goal_m': hold_position.tolist(),
+                        'speed_measure': self.cfg['reference_speed_measure'],
+                        'control_timestep_s': timestep, 'position_window_span_m': position_span,
                         'held_position_before_stabilization': trigger_position.tolist(),
                         'stabilization_tail': settling[-self.cfg['reference_grasp_hold_steps']:],
                         'initial_target_position': initial.tolist(), 'held_target_position': event['position'].tolist(),
