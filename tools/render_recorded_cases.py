@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import textwrap
 from types import SimpleNamespace
 
@@ -152,6 +153,35 @@ def main():
     output = Path(args.output)
     output.mkdir(parents=True, exist_ok=True)
     plan = read(args.plan)
+    # XML contains absolute asset paths. Import the locked LIBERO checkout used
+    # by each source experiment, and isolate different checkouts in processes.
+    grouped = {}
+    for item in plan:
+        commit = read(Path(item['source']) / 'run.json')['commit']
+        grouped.setdefault(commit, []).append(item)
+    if len(grouped) > 1:
+        records = []
+        for commit, items in grouped.items():
+            folder = output / commit[:12]
+            folder.mkdir(exist_ok=True)
+            worker_plan = folder / 'plan.json'
+            worker_plan.write_text(json.dumps(items, indent=2) + '\n')
+            subprocess.run([sys.executable, '-u', '-m', 'tools.render_recorded_cases',
+                            '--plan', str(worker_plan), '--output', str(folder)], check=True)
+            for record in read(folder / 'render_manifest.json'):
+                record['file'] = commit[:12] + '/' + record['file']
+                records.append(record)
+            (output / 'render_manifest.json').write_text(json.dumps(records, indent=2) + '\n')
+        (output / 'SUCCESS.json').write_text(json.dumps({'passed': True, 'videos': len(records),
+            'vla_calls': 0, 'gradient_updates': 0}) + '\n')
+        return
+    import yaml
+    original_config = Path(plan[0]['source']) / 'libero_config' / 'config.yaml'
+    assert original_config.is_file(), original_config
+    settings = yaml.safe_load(original_config.read_text())
+    original_libero = Path(settings['benchmark_root']).parents[1]
+    sys.path.insert(0, str(original_libero))
+    os.environ['LIBERO_CONFIG_PATH'] = str(original_config.parent)
     records = []
     for item in plan:
         record = render(Path(item['source']), item['case_id'], output)
