@@ -39,9 +39,18 @@ class RecoveryProbe(OutcomeProbe):
                     hold = np.zeros(7, dtype=np.float32)
                     hold[-1] = 1
                     settling = []
+                    minimum = self.cfg.get('reference_stabilize_steps', 0)
+                    requested_maximum = self.cfg.get('reference_stabilize_max_steps', minimum)
+                    window = self.cfg['reference_grasp_hold_steps']
+                    budget_cap = (self.cfg['episode_budget'] - self.cfg['min_remaining_steps']
+                                  - self.cfg['settle_steps'] - trigger_steps)
+                    maximum = min(requested_maximum, budget_cap)
+                    assert 0 < window <= minimum <= maximum, (
+                        f'Insufficient stabilization budget for seed {seed}: '
+                        f'min={minimum}, max={maximum}, remaining_cap={budget_cap}')
                     # Stop the moving reference before either intervention. These actions
                     # belong to the shared replay prefix and consume the episode budget.
-                    for _ in range(self.cfg.get('reference_stabilize_steps', 0)):
+                    for _ in range(maximum):
                         obs, _, done, _ = env.step(hold)
                         self.counts['prefix_env_steps'] += 1
                         actions_out.append(hold.copy())
@@ -50,16 +59,30 @@ class RecoveryProbe(OutcomeProbe):
                         velocity = env.sim.data.get_joint_qvel(self.target(env).joints[0])
                         settling.append({'grasped': event['grasped'],
                                          'linear_speed_mps': float(np.linalg.norm(velocity[:3]))})
-                    if settling:
-                        tail = settling[-self.cfg['reference_grasp_hold_steps']:]
-                        assert all(s['grasped'] for s in tail), f'Unstable held reference for seed {seed}: {tail}'
-                        assert max(s['linear_speed_mps'] for s in tail) <= self.cfg['max_reference_speed_mps'], (
-                            f'Reference still moving for seed {seed}: {tail}')
+                        tail = settling[-window:]
+                        stable_hold = (len(tail) == window and all(s['grasped'] for s in tail)
+                                       and max(s['linear_speed_mps'] for s in tail)
+                                       <= self.cfg['max_reference_speed_mps'])
+                        if len(settling) >= minimum and stable_hold:
+                            break
                     folder = self.directory / 'reference_prefixes'
                     folder.mkdir(exist_ok=True)
+                    if not stable_hold:
+                        write_json(folder / f'seed{seed:03d}_failure.json', {
+                            'reset_seed': seed, 'trigger_env_steps': trigger_steps,
+                            'stabilization_env_steps': len(settling), 'stabilization_maximum': maximum,
+                            'stabilization_samples': settling, 'prefix_env_steps': len(actions_out)})
+                        self.log('reference_stabilization_failed', **{
+                            'probe/current_case': f'reference_seed{seed:03d}',
+                            'probe/reference_stabilization_steps': len(settling)})
+                        assert all(s['grasped'] for s in tail), f'Unstable held reference for seed {seed}: {tail}'
+                        raise AssertionError(f'Reference still moving for seed {seed} after {maximum} steps: {tail}')
                     write_json(folder / f'seed{seed:03d}.json', {
                         'reset_seed': seed, 'env_steps': len(actions_out),
                         'trigger_env_steps': trigger_steps, 'stabilization_env_steps': len(settling),
+                        'stabilization_minimum': minimum, 'stabilization_maximum': maximum,
+                        'stabilization_budget_cap': budget_cap, 'stable_hold_window': window,
+                        'stabilization_samples': settling,
                         'held_position_before_stabilization': trigger_position.tolist(),
                         'stabilization_tail': settling[-self.cfg['reference_grasp_hold_steps']:],
                         'initial_target_position': initial.tolist(), 'held_target_position': event['position'].tolist(),
@@ -67,6 +90,9 @@ class RecoveryProbe(OutcomeProbe):
                         'reference_controller_run': self.cfg['controller']['run_dir'],
                         'reference_rng_query_offset': 100000,
                         'trigger_truth_scope': 'evaluation-only trigger; controller reads images and proprioception'})
+                    self.log('reference_stabilized', **{
+                        'probe/current_case': f'reference_seed{seed:03d}',
+                        'probe/reference_stabilization_steps': len(settling)})
                     return np.asarray(actions_out)
             raise AssertionError(f'No stable lifted-object trigger within {self.cfg["reference_max_steps"]} steps for seed {seed}')
         finally:
