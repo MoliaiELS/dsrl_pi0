@@ -19,8 +19,13 @@ class ReferenceStabilization(unittest.TestCase):
             value = speed if speeds is None else speeds[min(len(actions) - 4, len(speeds) - 1)]
             return np.array([value, 0, 0, 0, 0, 0])
 
-        data = SimpleNamespace(get_joint_qvel=velocity)
-        env = SimpleNamespace(sim=SimpleNamespace(data=data), closed=False)
+        data = SimpleNamespace(get_joint_qvel=velocity, get_site_xpos=lambda _: np.zeros(3))
+        controller = SimpleNamespace(eef_name='grip_site', use_delta=True, control_dim=6,
+                                     input_min=-np.ones(6), input_max=np.ones(6),
+                                     output_min=-np.array([.05] * 3 + [.5] * 3),
+                                     output_max=np.array([.05] * 3 + [.5] * 3), goal_pos=np.zeros(3))
+        env = SimpleNamespace(sim=SimpleNamespace(data=data), closed=False,
+                              robots=[SimpleNamespace(controller=controller)])
 
         def step(action):
             actions.append(np.array(action))
@@ -66,6 +71,27 @@ class ReferenceStabilization(unittest.TestCase):
         self.assertEqual(record['stabilization_env_steps'], 3)
         self.assertEqual(record['env_steps'], 6)
         self.assertTrue(env.closed)
+
+    def test_hold_feedback_keeps_one_world_position_target(self):
+        probe, env, _ = self.fixture()
+        current = np.array([.01, -.02, .005])
+        env.sim.data.get_site_xpos = lambda _: current
+        action = probe.position_hold_action(env, np.zeros(3), 1)
+        np.testing.assert_allclose(current + action[:3] * .05, 0, atol=1e-8)
+        np.testing.assert_array_equal(action[3:6], 0)
+        self.assertEqual(action[-1], 1)
+
+    def test_hold_feedback_is_bounded_and_preserves_release_command(self):
+        probe, env, _ = self.fixture()
+        action = probe.position_hold_action(env, np.array([1, -1, 1]), -1)
+        np.testing.assert_array_equal(action[:3], [1, -1, 1])
+        self.assertEqual(action[-1], -1)
+
+    def test_hold_feedback_rejects_an_incompatible_controller(self):
+        probe, env, _ = self.fixture()
+        env.robots[0].controller.use_delta = False
+        with self.assertRaisesRegex(AssertionError, 'delta OSC_POSE'):
+            probe.position_hold_action(env, np.zeros(3), 1)
 
     def test_reference_still_moving_is_rejected(self):
         probe, env, actions = self.fixture(speed=.1)

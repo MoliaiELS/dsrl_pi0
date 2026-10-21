@@ -116,8 +116,8 @@
   ],
   "video_stride": 2,
   "state_builder": "held_object_drop",
-  "split": "development C2 pilot v3; bounded shared held-object stabilization before sham/release; no OOD claim",
-  "common_state_method": "seeded reset, recorded DSRL lifted-object prefix plus 20-to-60-step closed-gripper stabilization until three consecutive stable samples, matched hold/release and 20-step settling",
+  "split": "development C2 pilot v4; bounded fixed-position held-object stabilization before sham/release; no OOD claim",
+  "common_state_method": "seeded reset, recorded DSRL lift plus 20-to-60-step fixed-EEF-position stabilization until three consecutive stable samples, fixed-position hold/release with 20-step settling",
   "smoke_reset_seeds": [
     20,
     21,
@@ -137,7 +137,7 @@
     "C0",
     "C2_drop"
   ],
-  "protocol_version": "C2_bounded_stable_shared_prefix_v3",
+  "protocol_version": "C2_fixed_position_stable_prefix_v4",
   "reference_stabilize_steps": 20,
   "reference_stabilize_max_steps": 60,
   "max_reference_speed_mps": 0.02

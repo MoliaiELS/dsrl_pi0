@@ -9,6 +9,29 @@ from tools.run_logger import write_json
 
 
 class RecoveryProbe(OutcomeProbe):
+    @staticmethod
+    def eef_position(env):
+        controller = env.robots[0].controller
+        return np.asarray(env.sim.data.get_site_xpos(controller.eef_name)).copy()
+
+    @classmethod
+    def position_hold_action(cls, env, goal_position, gripper):
+        controller = env.robots[0].controller
+        assert controller.use_delta and controller.control_dim == 6, 'Expected delta OSC_POSE controller'
+        lower, upper = controller.input_min[:3], controller.input_max[:3]
+        out_lower, out_upper = controller.output_min[:3], controller.output_max[:3]
+        scale = (out_upper - out_lower) / (upper - lower)
+        assert np.all(scale > 0)
+        # A zero delta re-anchors the OSC target to its current position on every
+        # call, allowing drift. Invert the existing action scale to keep one fixed
+        # world-position target; retain the previous orientation goal with zeros.
+        delta = np.asarray(goal_position) - cls.eef_position(env)
+        action = np.zeros(7, dtype=np.float32)
+        action[:3] = np.clip((delta - (out_upper + out_lower) / 2) / scale
+                             + (upper + lower) / 2, lower, upper)
+        action[-1] = gripper
+        return action
+
     def prefix(self, seed):
         self.log('building_reference_prefix', **{'probe/current_case': f'reference_seed{seed:03d}'})
         env, obs = self.reset_seed(seed)
@@ -36,8 +59,7 @@ class RecoveryProbe(OutcomeProbe):
                 if step + 1 >= self.cfg['reference_prefix_steps'] and stable >= self.cfg['reference_grasp_hold_steps']:
                     trigger_steps = len(actions_out)
                     trigger_position = event['position'].copy()
-                    hold = np.zeros(7, dtype=np.float32)
-                    hold[-1] = 1
+                    hold_position = self.eef_position(env)
                     settling = []
                     minimum = self.cfg.get('reference_stabilize_steps', 0)
                     requested_maximum = self.cfg.get('reference_stabilize_max_steps', minimum)
@@ -51,6 +73,7 @@ class RecoveryProbe(OutcomeProbe):
                     # Stop the moving reference before either intervention. These actions
                     # belong to the shared replay prefix and consume the episode budget.
                     for _ in range(maximum):
+                        hold = self.position_hold_action(env, hold_position, 1)
                         obs, _, done, _ = env.step(hold)
                         self.counts['prefix_env_steps'] += 1
                         actions_out.append(hold.copy())
@@ -58,7 +81,9 @@ class RecoveryProbe(OutcomeProbe):
                         event = self.events(env, initial[2])
                         velocity = env.sim.data.get_joint_qvel(self.target(env).joints[0])
                         settling.append({'grasped': event['grasped'],
-                                         'linear_speed_mps': float(np.linalg.norm(velocity[:3]))})
+                                         'linear_speed_mps': float(np.linalg.norm(velocity[:3])),
+                                         'target_position_m': event['position'].tolist(),
+                                         'eef_position_m': self.eef_position(env).tolist()})
                         tail = settling[-window:]
                         stable_hold = (len(tail) == window and all(s['grasped'] for s in tail)
                                        and max(s['linear_speed_mps'] for s in tail)
@@ -71,6 +96,7 @@ class RecoveryProbe(OutcomeProbe):
                         write_json(folder / f'seed{seed:03d}_failure.json', {
                             'reset_seed': seed, 'trigger_env_steps': trigger_steps,
                             'stabilization_env_steps': len(settling), 'stabilization_maximum': maximum,
+                            'fixed_eef_goal_m': hold_position.tolist(),
                             'stabilization_samples': settling, 'prefix_env_steps': len(actions_out)})
                         self.log('reference_stabilization_failed', **{
                             'probe/current_case': f'reference_seed{seed:03d}',
@@ -83,6 +109,7 @@ class RecoveryProbe(OutcomeProbe):
                         'stabilization_minimum': minimum, 'stabilization_maximum': maximum,
                         'stabilization_budget_cap': budget_cap, 'stable_hold_window': window,
                         'stabilization_samples': settling,
+                        'fixed_eef_goal_m': hold_position.tolist(),
                         'held_position_before_stabilization': trigger_position.tolist(),
                         'stabilization_tail': settling[-self.cfg['reference_grasp_hold_steps']:],
                         'initial_target_position': initial.tolist(), 'held_target_position': event['position'].tolist(),
@@ -102,9 +129,10 @@ class RecoveryProbe(OutcomeProbe):
         before = self.events(env, 0)
         assert before['grasped'] and not before['success'], 'Reference must hold the target before release/sham'
         release = condition['release']
-        hold = np.zeros(7)
-        hold[-1] = -1 if release else 1
+        hold_position = np.array(env.robots[0].controller.goal_pos).copy()
+        gripper = -1 if release else 1
         for _ in range(self.cfg['settle_steps']):
+            hold = self.position_hold_action(env, hold_position, gripper)
             obs, _, done, _ = env.step(hold)
             self.counts['settling_env_steps'] += 1
             assert not done, 'Original goal completed while constructing the common state'
@@ -122,13 +150,14 @@ class RecoveryProbe(OutcomeProbe):
             assert np.linalg.norm(delta) <= self.cfg['max_sham_displacement_m'], (
                 f'{condition["id"]} drift {np.linalg.norm(delta):.6f} m exceeds '
                 f'{self.cfg["max_sham_displacement_m"]:.6f} m; delta={delta.tolist()}')
-        validation = {'triggered': bool(release), 'release_gripper_command': float(hold[-1]),
+        validation = {'triggered': bool(release), 'release_gripper_command': float(gripper),
+                      'fixed_eef_goal_m': hold_position.tolist(),
                       'initial_target_position': after['position'].tolist(),
                       'held_position_before': before['position'].tolist(), 'drop_displacement_m': delta.tolist(),
                       'target_not_grasped': not after['grasped'], 'supported': bool(release),
                       'no_forbidden_penetration': True if release else None,
                       'settled_linear_speed_mps': float(np.linalg.norm(velocity[:3])),
-                      'scope': 'C2 physical release after lift; C0 keeps holding for identical settling duration'}
+                      'scope': 'C2 release / C0 closed gripper at the same fixed EEF position for identical settling duration'}
         if ik_screen:
             validation['position_ik_residual_m'] = self.position_ik_screen(env, after['position'])
             validation['ik_scope'] = 'position-only above-object screen; no recovery guarantee'
