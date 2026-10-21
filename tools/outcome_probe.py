@@ -22,6 +22,13 @@ from tools.control_probe import Probe, digest
 from tools.run_logger import RunLogger, write_json
 
 
+class ReferenceNotTriggered(RuntimeError):
+    """An attempted reference had no eligible intervention before its budget."""
+    def __init__(self, record):
+        self.record = record
+        super().__init__(f'Reference not triggered for seed {record["reset_seed"]}: {record["reason"]}')
+
+
 class OutcomeProbe(Probe):
     def __init__(self, config, directory, logger):
         super().__init__(config, directory, logger)
@@ -32,7 +39,8 @@ class OutcomeProbe(Probe):
 
         self.jax, self.to_actor_image = jax, obs_to_img
         self.counts.update(settling_env_steps=0, states_built=0, controller_calls=0,
-                           validation_rollouts=0, cases_successful=0)
+                           validation_rollouts=0, cases_successful=0,
+                           reference_attempts=0, reference_triggered=0, reference_not_triggered=0)
         self.results, self.state_manifest = [], []
         self.frozen_reference = None
         data_root = Path(os.environ['DSRL_DATA_ROOT']).resolve()
@@ -214,10 +222,22 @@ class OutcomeProbe(Probe):
 
     def make_outcome_states(self):
         states = []
+        self.untriggered_references = []
         folder = self.directory / 'common_states'
         folder.mkdir()
         for seed in self.cfg['reset_seeds']:
-            prefix = self.prefix(seed)
+            self.counts['reference_attempts'] = self.counts.get('reference_attempts', 0) + 1
+            try:
+                prefix = self.prefix(seed)
+            except ReferenceNotTriggered as error:
+                if not self.cfg.get('allow_untriggered_references', False):
+                    raise
+                self.untriggered_references.append(error.record)
+                self.counts['reference_not_triggered'] = self.counts.get('reference_not_triggered', 0) + 1
+                write_json(self.directory / 'untriggered_references.json', self.untriggered_references)
+                self.log('reference_not_triggered', **{'probe/current_case': f'reference_seed{seed:03d}'})
+                continue
+            self.counts['reference_triggered'] = self.counts.get('reference_triggered', 0) + 1
             hold = np.zeros(7)
             hold[-1] = prefix[-1, -1]
             for condition in self.cfg['conditions']:
@@ -244,9 +264,13 @@ class OutcomeProbe(Probe):
                 self.counts['states_built'] += 1
                 self.log('building_outcome_states', **{'probe/current_case': name})
         write_json(folder / 'manifest.json', {'states': self.state_manifest,
+                   'requested_reset_seeds': self.cfg['reset_seeds'],
+                   'triggered_reset_seeds': sorted({state['reset_seed'] for state in states}),
+                   'untriggered_references': self.untriggered_references,
                    'method': 'seeded reset, recorded prefix, recorded offset, zero target velocity, common settling',
                    'C0': 'zero-offset sham, same velocity reset and settling as C1',
                    'scope': self.cfg.get('split', 'development states; no OOD claim')})
+        assert states, 'No eligible common reference states; evaluation cannot proceed'
         return states
 
     def replay_outcome(self, state):
@@ -384,6 +408,11 @@ class OutcomeProbe(Probe):
         self.log('building_outcome_states')
         states = self.make_outcome_states()
         evaluated = [s for s in states if s['reset_seed'] in self.cfg['eval_reset_seeds']]
+        assert evaluated, 'No eligible states for the requested evaluation seeds'
+        if self.cfg.get('allow_untriggered_references', False):
+            available = {state['reset_seed'] for state in evaluated}
+            assert set(self.cfg['repeat_validation_reset_seeds']) <= available, (
+                'Prespecified repeated-reference validation seed did not trigger')
         pairs = self.cfg['eval_pairs']
         self.counts['cases_planned'] = len(evaluated) * len(pairs)
         write_json(self.directory / 'config.json', self.cfg)
@@ -406,10 +435,15 @@ class OutcomeProbe(Probe):
         assert self.counts['cases_completed'] == self.counts['cases_planned']
         summary = {'scope': self.cfg.get('split', 'development') + '; fixed interventions, not Instruction RL or Joint RL',
                    'gradient_updates': 0, 'counts': self.counts, **self.aggregate(),
+                   'reference_triggering': {
+                       'requested_reset_seeds': self.cfg['reset_seeds'],
+                       'triggered_reset_seeds': sorted({state['reset_seed'] for state in states}),
+                       'untriggered_references': self.untriggered_references,
+                       'recovery_denominator': 'conditional on eligible common reference; all nontriggers reported separately'},
                    'max_replay_errors': {k: max(e[k] for e in self.restore_errors) for k in self.restore_errors[0]},
                    'controller_unchanged': True, 'frozen_vla_output_unchanged': True,
                    'reference_rollouts_reproducible': True,
-                   'interpretation': 'C0 success and triggered C1 recovery are separate. Seeds/conditions are paired, not independent trials. No OOD claim.'}
+                   'interpretation': 'C0 success, triggered recovery and untriggered references are separate. Seeds/conditions are paired, not independent trials. No OOD claim.'}
         write_json(self.directory / 'outcome_summary.json', summary)
         self.log('completed', **{'probe/replay_verified': True, 'probe/controller_unchanged': True,
                                   'probe/frozen_vla_unchanged': True})

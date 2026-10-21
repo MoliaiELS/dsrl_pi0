@@ -8,6 +8,7 @@ import unittest
 import numpy as np
 
 from tools.recovery_probe import RecoveryProbe
+from tools.outcome_probe import OutcomeProbe, ReferenceNotTriggered
 
 
 class ReferenceStabilization(unittest.TestCase):
@@ -162,6 +163,83 @@ class ReferenceStabilization(unittest.TestCase):
             probe.prefix(21)
         self.assertEqual(len(actions), 6)
         self.assertTrue(env.closed)
+
+    def test_untriggered_reference_records_all_attempted_actions_and_reason(self):
+        probe, env, actions = self.fixture()
+        probe.cfg['reference_max_steps'] = 2
+        with self.assertRaises(ReferenceNotTriggered) as caught:
+            probe.prefix(24)
+        record = caught.exception.record
+        self.assertEqual(record['reset_seed'], 24)
+        self.assertEqual(record['reason'], 'reference_prefix_budget_exhausted')
+        self.assertEqual(record['prefix_env_steps'], 2)
+        saved = np.load(probe.directory / record['actions_file'])['actions']
+        np.testing.assert_array_equal(saved, np.asarray(actions))
+        self.assertTrue(env.closed)
+
+
+class TriggerCohortAccounting(unittest.TestCase):
+    def fixture(self):
+        temp = tempfile.TemporaryDirectory(prefix='dsrl-trigger-cohort-')
+        self.addCleanup(temp.cleanup)
+        probe = OutcomeProbe.__new__(OutcomeProbe)
+        probe.directory = Path(temp.name)
+        probe.cfg = {'reset_seeds': [24, 20], 'conditions': [{'id': 'C0'}],
+                     'allow_untriggered_references': True, 'episode_budget': 400, 'settle_steps': 20}
+        probe.counts, probe.state_manifest = {'states_built': 0}, []
+        probe.log = lambda *a, **kw: None
+
+        def prefix(seed):
+            if seed == 24:
+                raise ReferenceNotTriggered({'reset_seed': 24, 'reason': 'reference_prefix_budget_exhausted'})
+            return np.zeros((1, 7))
+
+        env = SimpleNamespace(closed=False)
+        env.close = lambda: setattr(env, 'closed', True)
+        probe.prefix = prefix
+        probe.replay_prefix = lambda *_: (env, {})
+        probe.apply_condition = lambda *a, **kw: ({}, {'triggered': False})
+        probe.snapshot = lambda *_: {'physics': np.zeros(3), 'proprio': np.zeros(8),
+            'agentview_image': np.zeros((2, 2, 3), dtype=np.uint8),
+            'wrist_image': np.zeros((2, 2, 3), dtype=np.uint8), 'model_xml_sha256': 'fixture'}
+        return probe, env
+
+    def test_nontrigger_is_reported_without_removing_the_requested_seed(self):
+        probe, env = self.fixture()
+        states = probe.make_outcome_states()
+        self.assertEqual([state['reset_seed'] for state in states], [20])
+        self.assertEqual(probe.cfg['reset_seeds'], [24, 20])
+        self.assertEqual(probe.counts['reference_attempts'], 2)
+        self.assertEqual(probe.counts['reference_triggered'], 1)
+        self.assertEqual(probe.counts['reference_not_triggered'], 1)
+        manifest = json.loads((probe.directory / 'common_states/manifest.json').read_text())
+        self.assertEqual(manifest['untriggered_references'][0]['reset_seed'], 24)
+        self.assertTrue(env.closed)
+
+    def test_no_eligible_reference_cannot_be_reported_as_success(self):
+        probe, _ = self.fixture()
+        probe.cfg['reset_seeds'] = [24]
+        with self.assertRaisesRegex(AssertionError, 'No eligible common reference states'):
+            probe.make_outcome_states()
+
+    def test_physically_invalid_condition_still_stops_the_evaluation(self):
+        probe, env = self.fixture()
+        probe.cfg['reset_seeds'] = [20]
+
+        def invalid(*args, **kwargs):
+            raise AssertionError('Dropped target is not supported by the table')
+
+        probe.apply_condition = invalid
+        with self.assertRaisesRegex(AssertionError, 'not supported'):
+            probe.make_outcome_states()
+        self.assertEqual(probe.counts.get('reference_not_triggered', 0), 0)
+        self.assertTrue(env.closed)
+
+    def test_nontrigger_handling_requires_explicit_protocol_opt_in(self):
+        probe, _ = self.fixture()
+        probe.cfg['allow_untriggered_references'] = False
+        with self.assertRaises(ReferenceNotTriggered):
+            probe.make_outcome_states()
 
 
 if __name__ == '__main__':

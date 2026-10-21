@@ -4,11 +4,25 @@ import json
 
 import numpy as np
 
-from tools.outcome_probe import OutcomeProbe
+from tools.outcome_probe import OutcomeProbe, ReferenceNotTriggered
 from tools.run_logger import write_json
 
 
 class RecoveryProbe(OutcomeProbe):
+    def record_untriggered(self, seed, actions, trace, reason):
+        folder = self.directory / 'reference_prefixes'
+        folder.mkdir(exist_ok=True)
+        record = {'reset_seed': seed, 'reason': reason, 'prefix_env_steps': len(actions),
+                  'original_goal_success': any(step['goal_success'] for step in trace),
+                  'maximum_lift_m': max((step['lift_m'] for step in trace), default=0),
+                  'grasped_steps': sum(step['grasped'] for step in trace),
+                  'eligible_steps': sum(step['eligible'] for step in trace),
+                  'trace_file': f'reference_prefixes/seed{seed:03d}_untriggered.json',
+                  'actions_file': f'reference_prefixes/seed{seed:03d}_untriggered.npz'}
+        write_json(folder / f'seed{seed:03d}_untriggered.json', {**record, 'trace': trace})
+        np.savez_compressed(folder / f'seed{seed:03d}_untriggered.npz', actions=np.asarray(actions))
+        raise ReferenceNotTriggered(record)
+
     @staticmethod
     def eef_position(env):
         controller = env.robots[0].controller
@@ -35,7 +49,7 @@ class RecoveryProbe(OutcomeProbe):
     def prefix(self, seed):
         self.log('building_reference_prefix', **{'probe/current_case': f'reference_seed{seed:03d}'})
         env, obs = self.reset_seed(seed)
-        actions_out, stable = [], 0
+        actions_out, stable, trigger_trace = [], 0, []
         initial = self.events(env, 0)['position'].copy()
         zero = np.zeros((1, 50, 32), dtype=np.float32)
         try:
@@ -51,11 +65,17 @@ class RecoveryProbe(OutcomeProbe):
                 obs, _, done, _ = env.step(action)
                 self.counts['prefix_env_steps'] += 1
                 actions_out.append(action.copy())
-                assert not done, 'Reference reached goal before the held-object trigger'
                 event = self.events(env, initial[2])
                 eligible = (event['grasped'] and event['position'][2] - initial[2] >= self.cfg['reference_lift_m']
                             and np.linalg.norm(event['position'][:2] - initial[:2]) >= self.cfg['reference_translation_m'])
                 stable = stable + 1 if eligible else 0
+                trigger_trace.append({'step': step + 1, 'grasped': event['grasped'],
+                                      'lift_m': float(event['position'][2] - initial[2]),
+                                      'eligible': bool(eligible), 'goal_success': event['success'],
+                                      'position_m': event['position'].tolist()})
+                if done or event['success']:
+                    self.record_untriggered(seed, actions_out, trigger_trace,
+                        'original_goal_completed_before_trigger' if event['success'] else 'reference_terminated_before_trigger')
                 if step + 1 >= self.cfg['reference_prefix_steps'] and stable >= self.cfg['reference_grasp_hold_steps']:
                     trigger_steps = len(actions_out)
                     trigger_position = event['position'].copy()
@@ -136,7 +156,7 @@ class RecoveryProbe(OutcomeProbe):
                         'probe/current_case': f'reference_seed{seed:03d}',
                         'probe/reference_stabilization_steps': len(settling)})
                     return np.asarray(actions_out)
-            raise AssertionError(f'No stable lifted-object trigger within {self.cfg["reference_max_steps"]} steps for seed {seed}')
+            self.record_untriggered(seed, actions_out, trigger_trace, 'reference_prefix_budget_exhausted')
         finally:
             env.close()
 

@@ -116,7 +116,7 @@
   ],
   "video_stride": 2,
   "state_builder": "held_object_drop",
-  "split": "development C2 pilot v5; fixed-position hold with control-interval motion stability and logged instantaneous velocity; no OOD claim",
+  "split": "development C2 pilot v6; all reference attempts reported; recovery conditional on eligible lift trigger; no OOD claim",
   "common_state_method": "seeded reset, recorded DSRL lift plus bounded fixed-EEF-position hold; three consecutive control-interval speeds and a full minimum-wait position-span check; matched 20-step hold/release",
   "smoke_reset_seeds": [
     20,
@@ -137,7 +137,8 @@
     "C0",
     "C2_drop"
   ],
-  "protocol_version": "C2_fixed_position_control_interval_stability_v5",
+  "protocol_version": "C2_conditional_triggered_recovery_v6",
+  "allow_untriggered_references": true,
   "reference_speed_measure": "control_interval_displacement",
   "reference_stabilize_steps": 20,
   "reference_stabilize_max_steps": 60,
