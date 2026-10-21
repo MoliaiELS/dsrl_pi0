@@ -176,8 +176,10 @@ def main():
             'vla_calls': 0, 'gradient_updates': 0}) + '\n')
         return
     import yaml
-    original_config = Path(plan[0]['source']) / 'libero_config' / 'config.yaml'
-    assert original_config.is_file(), original_config
+    source = Path(plan[0]['source'])
+    candidates = [parent / 'libero_config' / 'config.yaml' for parent in [source, *source.parents]]
+    original_config = next((path for path in candidates if path.is_file()), None)
+    assert original_config is not None, source
     settings = yaml.safe_load(original_config.read_text())
     original_libero = Path(settings['benchmark_root']).parents[1]
     sys.path.insert(0, str(original_libero))
