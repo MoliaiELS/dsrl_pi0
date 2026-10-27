@@ -4,6 +4,19 @@
 
 ## 新轮次：语言目标与阶段诊断 first_batch（2026-10-27；实施中）
 
+### 会话交接：用户要求暂时结束，后台继续（2026-10-27晚）
+
+- **不要取消或重复提交18584。** 最后核对：Slurm RUNNING，3090node2，已连续约5:03；E1确认590/800，加开发/辅助共780/990主回合。技术错误/重试0；独立保存轨迹审计779/779通过。当前是冻结策略评估，新模型训练0。
+- 查询仍使用 `powershell -ExecutionPolicy Bypass -File tools/remote.ps1 status 18584`。现已同时显示 `trajectory_audit.json`、`closure_check.json`、`POSTPROCESS_COMPLETE.json`、`AUTO_WORKFLOW.json`、`EXTRA_POSTPROCESS_COMPLETE.json`，不只显示GPU作业。
+- 原自动CPU后处理 **PID1802324**、固定分析447446a仍正常等待；新增独立CPU监控 **PID2018544**，固定代码 **0faa791b35b04ffd2fff359d31044f74fd438935**，每60秒检查、每增加约100条做轨迹审计。两进程PPID均为1；新监控另有独立session，JAX_PLATFORMS=cpu、CUDA_VISIBLE_DEVICES为空，均不依赖本次会话或SSH窗口。第一次自动审计已实际通过779条，非仅启动成功。
+- 后台顺序：Slurm继续完成800确认→保存动作精确重放→初版统计；原CPU等待器自动做全量轨迹/权重核验、cluster统计、图表、HTML及原证据ZIP；新监控随后补描述性错误分解、来源重构的逻辑infer记账、前置E0原始证据副本与 `runs/job-18584-research-closure.zip`。不提交额外GPU任务或未来训练。`AUTO_WORKFLOW.phase=COMPLETE`及两项POSTPROCESS passed表示自动闭环完成；若CPU_WORKFLOW_ERROR，先读下面日志，不直接重跑已完成case。
+- 后台启动凭据与日志：`runs/research-workflow-18583/{monitor_launch.json,monitor.log,postprocess_launch.json,postprocess.log}`；状态文件在`runs/job-18584/`。Slurm原日志`logs/slurm/18584.log`。若原后处理进程意外退出，新监控会在GPU作业退出后接管CPU finish。
+- **下次对话**先看上述状态、`decision.json`和完整配对统计，再解释真实结果、选择一个下一批优先方向。尚未读取确认中途成效，未调整锁定协议（resolved SHA715066dc…）、提示、校准、种子或保留集；E2开发六组均0/10，未达到后续阶段确认门禁，不自动启动SFT/PPO/阶段训练。
+- 最终人工审阅版图文报告留待结果出来后完成。原自动REPORT/decision与ZIP先保留；准备文件已归档到 `job-18584/engineering/{assemble_report.py,account_inference.py,methods_fragment.md}`，本地备份在`tmp/language-stage-20261027/`。完整统计后填写7个问题与单一优先方向的review JSON，再运行装配脚本；补入现成E1/E2并排录像、场景图和探索性交叉表，重生成HTML并使用独立最终ZIP名，不覆盖原自动ZIP及其SHA。不要在没有review JSON时直接调用装配脚本。
+- 评估代码始终008a0a2，原自动分析447446a；探索性分解来自af25e68（监控版本继承相同文件）。本地用户`bash.sh`修改与远端未跟踪`bash.sh`均保留。下方为历史实施记录，不代表当前仍停留在最初阶段。
+
+### 实施与持续核验记录
+
 - 已完整读取用户交付的实验规约，原目录移至 `docs/protocols/dsrl_vla_protocol_20261027/`，保留原始六个文件。原协议 SHA256：`e6d1144e65192a431132d0f0ac62a7383ea04358a818bf360d280907c86ed024`；静态验证通过，不代表仿真验证通过。
 - 独立分支 `experiment/language-stage-20261027`，起点 `4774febfa18cc64f3c28e6f39d63bee28676a8fb`。本地已有 `bash.sh` 修改、远端源码未跟踪 `bash.sh` 均保留。
 - 默认仅评估冻结 pi0_libero 与已有三个 500000-update DSRL 控制器。执行顺序：E0 → E1 dev 100 → aux 30 → E2 global/校准/fixed/oracle 共60 → 统一锁定 → E1 confirmation 800。禁止用旧工具40步切回原文或原goal提前done代替新评估。
