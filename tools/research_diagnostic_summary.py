@@ -4,6 +4,7 @@ No environment or model is loaded. These descriptive counts complement the
 registered metrics; conditioning on first grasp is not a causal experiment.
 """
 import argparse
+from collections import Counter
 import csv
 import json
 from pathlib import Path
@@ -19,8 +20,8 @@ def summarize(output):
     assert closure['passed'] and closure['all_main_cases_present']
     assert read(output / 'POSTPROCESS_COMPLETE.json')['passed']
     source = output / 'episodes.jsonl'
-    records = [json.loads(line) for line in source.read_text(encoding='utf-8').splitlines()]
-    records = [r for r in records if r['case']['phase'] == 'e1_confirm']
+    all_records = [json.loads(line) for line in source.read_text(encoding='utf-8').splitlines()]
+    records = [r for r in all_records if r['case']['phase'] == 'e1_confirm']
     assert len(records) == 800 and all(r['status'] in ['COMPLETE', 'POLICY_FAILURE'] for r in records)
     policies = ['base', 'bounded_random', 'dsrl_s0', 'dsrl_s1', 'dsrl_s2']
     rows = []
@@ -49,6 +50,27 @@ def summarize(output):
         writer = csv.DictWriter(stream, fieldnames=list(rows[0]))
         writer.writeheader()
         writer.writerows(rows)
+
+    # Post-hoc E2 description: "wrong_butter_grasp" only covers butter_2, so it
+    # cannot rule out grasping the bowl or another unrelated object instead.
+    stage_rows = []
+    for task in ['T1', 'T2']:
+        for condition in ['global', 'fixed_stage', 'oracle_stage']:
+            selected = [r for r in all_records if r['case']['phase'] == 'e2_dev'
+                        and r['case']['task'] == task and r['case']['condition'] == condition]
+            assert len(selected) == 10
+            counts = Counter('+'.join(sorted(r['first_grasp_objects'])) if r['first_grasp_objects'] else 'NONE' for r in selected)
+            diagnostics = selected[0]['failure_diagnostics']
+            stage_rows.append(dict(task=task, condition=condition, n=10, first_stable_objects=dict(sorted(counts.items())),
+                episodes_with_diagnostic={k: sum(bool(r['failure_diagnostics'][k]) for r in selected) for k in diagnostics},
+                recorded_event_totals={k: sum(r['failure_diagnostics'][k] for r in selected)
+                                       for k in ['drop_events', 'repeated_stage_opening']}))
+    atomic(output / 'e2_object_diagnostics.json', dict(exploratory_post_hoc=True, rows=stage_rows,
+        cautions=['wrong_butter_grasp tracks butter_2 only, not all wrong objects',
+                  'Heuristic drop/opening tags are descriptive; absence does not prove absence of every physical failure',
+                  'No first-stage completion leaves the stage-transition mechanism untested'],
+        source_episodes_sha256=file_sha(source), analysis_code_sha256=file_sha(__file__),
+        simulation_steps_added=0, vla_calls_added=0))
 
     import matplotlib
     matplotlib.use('Agg')
