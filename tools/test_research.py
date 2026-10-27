@@ -63,7 +63,7 @@ class ResearchTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             b=SimpleNamespace(p=self.p,output=Path(d),logger=SimpleNamespace(log=lambda *a:None),
                 reset=lambda *a:(env,{}),common=lambda *a:dict(id='mock'),events=event,infer=infer,
-                audit_prompt=lambda text:dict(tokens=[],mask=[]),noise=lambda *a:(np.zeros((1,50,32)),np.array([0,0])))
+                audit_prompt=lambda text:dict(tokens=[0]*48,mask=[True]*2+[False]*46),noise=lambda *a:(np.zeros((1,50,32)),np.array([0,0])))
             result=rollout(b,c,Budget(Path(d)/'budget.json'),{},0)
             self.assertEqual((env.steps,result['executed_env_steps'],result['vla_queries']),(400,400,20))
             self.assertEqual(result['status'],'POLICY_FAILURE')
@@ -133,6 +133,10 @@ class ResearchTests(unittest.TestCase):
             self.assertEqual(decision['scientific_decision'],'EXECUTION_BOTTLENECK')
             self.assertEqual(decision['completed_cases'],990)
             self.assertEqual(len(read(root/'paired_cluster_statistics.json')['e1_confirm']['complete_clusters']),40)
+            intervals=read(root/'paired_cluster_statistics.json')['interfaces']['base']['complete_cluster_statistics']
+            self.assertEqual(intervals['L']['clusters'],40)
+            self.assertEqual(intervals['L']['estimate'],1)
+            self.assertEqual(intervals['pair_both_correct']['estimate'],1)
 
 
 if __name__=='__main__':unittest.main()

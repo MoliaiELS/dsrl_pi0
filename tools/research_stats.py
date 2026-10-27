@@ -82,8 +82,10 @@ def generate(output,p,execution_status=None):
     paired={phase:paired_contrasts(records,plan,phase) for phase in ['e1_dev','e1_confirm']}
     valid=[r for r in records if r['status'] in ['COMPLETE','POLICY_FAILURE']]
     interfaces={}
+    confirmation_clusters=paired['e1_confirm']['complete_clusters']
     for policy in [x['id'] for x in p['e1']['policies']]:
-        rs=[r for r in valid if r['case']['phase']=='e1_confirm' and r['case']['policy']==policy]
+        rs=[r for r in valid if r['case']['phase']=='e1_confirm' and r['case']['policy']==policy
+            and r['case']['reset_seed'] in confirmation_clusters]
         bygoal={g:[r for r in rs if r['case']['requested_goal_id']==g] for g in ['A','B']}
         def rate(goal,metric):
             values=bygoal[goal];return float(np.mean([r[metric] for r in values])) if values else None
@@ -98,6 +100,33 @@ def generate(output,p,execution_status=None):
             success={g:rate(g,'active_goal_ever_success') for g in bygoal},confusion=confusion,
             L=.5*(grasp_prob('A','A')-grasp_prob('B','A')+grasp_prob('B','B')-grasp_prob('A','B')) if rs else None,
             pair_both_correct=float(np.mean(both)) if both else None,wrong_A_under_B=grasp_prob('B','A') if rs else None)
+        cluster_values=defaultdict(list)
+        for seed in confirmation_clusters:
+            selected=[r for r in rs if r['case']['reset_seed']==seed]
+            by_goal={g:[r for r in selected if r['case']['prompt_id']==g] for g in ['A','B']}
+            def probability(goal,klass):
+                return float(np.mean([r['first_grasp_class']==klass for r in by_goal[goal]]))
+            cluster_values['L'].append(.5*(probability('A','A')-probability('B','A')+probability('B','B')-probability('A','B')))
+            cluster_values['wrong_A_under_B'].append(probability('B','A'))
+            for goal in ['A','B']:
+                for metric in ['correct_first_grasp','active_goal_ever_success']:
+                    cluster_values[goal+'__'+metric].append(float(np.mean([r[metric] for r in by_goal[goal]])))
+            pairs=[]
+            for sample in [0,1]:
+                branches=[r for r in selected if r['case']['sampling_seed']==sample]
+                pairs.append(all(r['correct_first_grasp'] for r in branches))
+            cluster_values['pair_both_correct'].append(float(np.mean(pairs)))
+        interfaces[policy]['complete_cluster_statistics']={key:interval(values) for key,values in cluster_values.items()}
+    paired['e1_goal_bias_contrasts']={}
+    for policy in ['dsrl_s0','dsrl_s1','dsrl_s2']:
+        for reference in ['base','bounded_random']:
+            effects=[]
+            for seed in confirmation_clusters:
+                selected=[r for r in valid if r['case']['phase']=='e1_confirm' and r['case']['reset_seed']==seed and r['case']['prompt_id']=='B']
+                a=[r['first_grasp_class']=='A' for r in selected if r['case']['policy']==policy]
+                b=[r['first_grasp_class']=='A' for r in selected if r['case']['policy']==reference]
+                effects.append(float(np.mean(a)-np.mean(b)))
+            paired['e1_goal_bias_contrasts'][policy+'_minus_'+reference]=interval(effects)
     stage={}
     for task in p['e2']['tasks']:
         rs=[r for r in valid if r['case']['phase']=='e2_dev' and r['case']['task']==task['id']]
@@ -161,6 +190,13 @@ def generate(output,p,execution_status=None):
             'No reserved-set results read','Three controllers are fixed checkpoint comparisons'],
         planned_cases=len(required),completed_cases=sum(c['id'] in done for c in required),
         valid_cases=sum(r['case']['phase']!='e0' for r in valid))
+    import subprocess
+    from tools.research_core import file_sha
+    try: analysis_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+    except (OSError,subprocess.SubprocessError):analysis_commit=None
+    atomic(output/'analysis_manifest.json',dict(analysis_commit=analysis_commit,analysis_file_sha256=file_sha(__file__),
+        evaluation_code_commit=read(output/'run_manifest.json')['code_commit'],protocol_metrics_unchanged=True,
+        independent_cluster='reset within task',confirmation_primary_subset='complete clusters across all paired conditions'))
     atomic(output/'decision.json',decision)
     lines=['# 语言目标与阶段诊断报告','',f"执行状态：{execution_status}；科学判断：{label}。",
         f"代码：`{read(output/'run_manifest.json')['code_commit']}`。完整配置见 resolved_protocol.json，逐案例见 episodes.jsonl，逐步见 events.jsonl。",
@@ -175,6 +211,15 @@ def generate(output,p,execution_status=None):
         '', '| split/task/policy/prompt | valid/planned | correct first grasp | active goal ever |', '| --- | --- | --- | --- |']
     for row in summary:
         lines.append(f"| {row['phase']}/{row['task']}/{row['policy']}/{row['prompt']} | {row['valid']}/{row['planned']} | {row['correct_first_grasp']} | {row['active_goal_ever_success']} |")
+    lines+=['','## 辅助文本行为对照','',
+        '辅助文本仅开发集，每条件最多5个reset。空文本/无关文本没有requested goal；下表是行为频率，不称任务成功率。',
+        '![辅助文本行为](figures/e1_auxiliary_behavior.png)',
+        '', '| policy / text | valid/planned | grasp A/B/OTHER/MULTIPLE/NONE | goal A ever | goal B ever |',
+        '| --- | --- | --- | --- | --- |']
+    for row in summary:
+        if row['phase']=='e1_aux':
+            counts='/'.join(str(row['first_grasp_'+k]) for k in p['e1']['first_grasp_classes'])
+            lines.append(f"| {row['policy']} / {row['prompt']} | {row['valid']}/{row['planned']} | {counts} | {row['goal_A_ever']} | {row['goal_B_ever']} |")
     lines += ['', '## 配对证据','', '统计单位是reset，保留文本/采样/控制器分支配对。10000次cluster bootstrap，seed99021；退化区间不代表确定性。',
               '![配对效应区间](figures/e1_paired_effects.png)',
               '效应量、95%区间和缺失值最坏/最好界见 paired_cluster_statistics.json。辅助空文本/无关文本没有requested goal，不计算任务成功率。',
@@ -194,6 +239,23 @@ def generate(output,p,execution_status=None):
     if (output/'calibration.json').exists():stage_lines+=['', '`calibration`: '+json.dumps(read(output/'calibration.json')['switch_steps'])]
     index=lines.index('## 阶段诊断')+1
     lines[index:index]=stage_lines
+    # Link the first-two-reset videos for every configuration, including ceiling cases
+    # with no win/loss representative; filenames stay tied to immutable case artifacts.
+    video_groups=defaultdict(list)
+    for record in records:
+        c=record['case']
+        for filename in record['artifact_hashes']:
+            if filename.endswith('rollout.mp4'):
+                video_groups[(c['phase'],c['task'],c['policy'],c['prompt_id'])].append((c['reset_seed'],c['sampling_seed'],filename))
+    for phases,anchor,title in [(['e1_dev','e1_confirm'],'## 辅助文本行为对照','E1各配置预定前两个reset录像'),
+                               (['e1_aux'],'## 配对证据','辅助配置预定前两个reset录像'),
+                               (['e2_dev'],'## 成本与下一步','E2各配置预定前两个reset录像')]:
+        index_lines=['',title+'：','', '| phase / task / policy / text | fixed reset videos |','| --- | --- |']
+        for key,values in sorted(video_groups.items()):
+            if key[0] in phases:
+                links='；'.join(f'[reset {seed}, sampling {sample}]({filename})' for seed,sample,filename in sorted(values))
+                index_lines.append('| '+' / '.join(key)+' | '+links+' |')
+        index=lines.index(anchor);lines[index:index]=index_lines+['']
     selection_path=output/'media/selection.json'
     if selection_path.exists():
         selection=read(selection_path)
@@ -201,7 +263,12 @@ def generate(output,p,execution_status=None):
             media_lines=['',f'{task} 预定规则选择的保存动作重放（非重新采样）：']
             for row in selection:
                 if row['task']==task:
-                    media_lines.append(f"- {row['comparison']} / {row.get('goal','')} / {row['stratum']}: "+'；'.join(f'[{c}](media/{c}.mp4)' for c in row['cases']))
+                    labels=[]
+                    lookup={r['case']['id']:r['case'] for r in records}
+                    for ident in row['cases']:
+                        c=lookup[ident]
+                        labels.append(f"[{c['policy']} / {c['prompt_id']} / reset {c['reset_seed']} / sampling {c['sampling_seed']}](media/{ident}.mp4)")
+                    media_lines.append(f"- {row['comparison']} / {row.get('goal','')} / {row['stratum']}: "+'；'.join(labels))
             index=lines.index(anchor)
             lines[index:index]=media_lines+['']
     if (output/'budget.json').exists(): lines+=['','```json',json.dumps(read(output/'budget.json'),ensure_ascii=False,indent=2),'```']

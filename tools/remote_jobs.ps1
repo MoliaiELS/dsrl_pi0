@@ -26,6 +26,8 @@ if (-not $ConfigPath) { $ConfigPath=Join-Path $PSScriptRoot 'remote.json' }
 $config=Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
 function Quote-Bash([string]$Value) { return "'"+$Value.Replace("'", "'\''")+"'" }
 $script=@('set -euo pipefail')
+$setup=if ($config.BashSetupPath) {$config.BashSetupPath} else {$config.SourceRepo+'/bash.sh'}
+$script += 'source '+(Quote-Bash $setup)
 if ($Command -in @('status','logs')) {
     if ($JobId -notmatch '^\d+$') { throw 'Provide an explicit numeric job ID.' }
     $script += 'record='+ (Quote-Bash ($config.DataRoot+'/runs/job-'+$JobId))
@@ -54,11 +56,13 @@ result={'directory':str(p),'run':read('run.json'),
 manifest=read('case_manifest.json')
 if isinstance(manifest,list):
     result['current_case']=next((c for c in manifest if c['id']==latest.get('research/current_case')),None)
-    phases=sorted({c['phase'] for c in manifest if c['phase']!='e0'})
+    phases=['e0'] if result['run'].get('mode')=='research-smoke' else sorted({c['phase'] for c in manifest if c['phase']!='e0'})
     result['research_progress']={phase:{'completed':len(list((p/'cases').glob(phase+'__*.json'))),
                                       'planned':sum(c['phase']==phase for c in manifest)} for phase in phases}
 for name in ['SUCCESS.json','FAILED.json','E0_PASS.json','decision.json','budget.json']:
     value=read(name)
+    if name=='E0_PASS.json' and value:
+        value={k:value[k] for k in ['passed','short_branches','policy_steps','eval_updates','replay_insertions'] if k in value}
     if value: result[name]={k:v for k,v in value.items() if k!='traceback'}
 metrics=p/'metrics.jsonl'
 if metrics.exists():

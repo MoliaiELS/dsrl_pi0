@@ -16,6 +16,9 @@
 - **18583 SUCCESS / E0_PASS**：3090node2完成最终版10个40步分支及重放/witness，10项CPU检查也在远端通过。11条提示全部无截断，最长30/48 token，空文本2token。官方任务按名称解析为E1=57、T1=8、T2=4。
 - 登录节点轻量自动衔接器 `runs/research-autosubmit-18583.py`（本地备份 `tmp/language-stage-20261027/autosubmit.py`）核对同commit/协议/E0_SUCCESS，并在登录节点补核两个E0作业的sacct分配时间后，**自动提交完整first_batch 18584，已在3090node2运行**。工作流记录 `runs/research-workflow-18583/submitted.json`；正式结果目录 `runs/job-18584/`。当前仅开始执行，尚无新科学结论。
 - 首批主结果计划990完整回合（100dev+30aux+60stage-dev+800confirmation），E0单独记录。最终评估代码固定 `008a0a2f9789b14e2cc732a15e23ad9432a1aa79`；之后文档提交不改变运行目录。查询：`powershell -ExecutionPolicy Bypass -File tools/remote.ps1 status 18584`。
+- 18584启动与持续监控：前7回合完整400步/20query，含2个B全程文本检查，共同状态误差0；随后前52回合由独立 `tools/research_audit.py` 对动作/噪声、每步事件、首次抓取、两目标ever/first/final、稳定释放与原done处理重算，**52/52通过**，已有6960个native_done=True之后继续执行的控制步。审计新增环境步0、VLA前向0；无技术重试。证据 `startup_check.json`、`trajectory_audit.json`。
+- 分析与展示后处理单独完善，不改变运行中的评估：主统计使用完整reset cluster；另给L、pair_both_correct、逐目标指标及每controller的B→A偏置区间（探索性），增加辅助文本行为图和每配置固定前2reset视频索引；分析脚本另记版本/hash。
+- 元数据澄清：SAC恢复构造并载入含原优化器状态的TrainState；本轮**优化器step为0，完整保存状态前后一致**。原 `trainable_manifest.optimizer_created=false` 字段命名不严谨，独立 `optimizer_restore_audit.json` 保留原文件SHA并明确更正解释，不覆写原始文件。
 
 ## 实验报告与可视化归档（2026-10-21；已完成）
 

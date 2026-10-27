@@ -127,3 +127,15 @@ def figures(output,summary,paired):
             ax.bar(np.arange(3)+(j-.5)*.36,[conditions[c][key]/max(1,conditions[c]['n']) for c in ['global','fixed_stage','oracle_stage']],width=.36,label=key)
         ax.set_xticks(range(3),['global','fixed','oracle']);ax.set(ylim=(0,1.08),title=task+' (development n<=10)',ylabel='Proportion');ax.legend()
     fig.savefig(folder/'e2_stages.png',dpi=180);plt.close(fig)
+    aux=[r for r in summary if r['phase']=='e1_aux']
+    if aux:
+        fig,axes=plt.subplots(1,3,figsize=(12,4),layout='constrained')
+        prompts=['A_paraphrase','empty','unrelated']
+        for ax,key,title in zip(axes,['first_grasp_A','goal_A_ever','goal_B_ever'],
+                                ['First stable grasp is A','Official goal A ever true','Official goal B ever true']):
+            for j,policy in enumerate(['base','dsrl_s0']):
+                rows=[next((r for r in aux if r['policy']==policy and r['prompt']==prompt),None) for prompt in prompts]
+                values=[r[key]/r['valid'] if key.startswith('first_grasp') and r and r['valid'] else r[key] if r else np.nan for r in rows]
+                ax.bar(np.arange(3)+(j-.5)*.36,values,width=.36,label=policy)
+            ax.set_xticks(range(3),prompts,rotation=20);ax.set(ylim=(0,1.08),title=title,ylabel='Behavior frequency (n<=5)');ax.legend()
+        fig.savefig(folder/'e1_auxiliary_behavior.png',dpi=180);plt.close(fig)
