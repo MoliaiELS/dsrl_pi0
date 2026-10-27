@@ -1,5 +1,6 @@
 {
   "SshHost": "idac_sever",
+  "BashSetupPath": "/mnt/slurmfs-4090node1/homes/yguo704/dsrl_pi0/bash.sh",
   "RepoDir": "/mnt/slurmfs-4090node1/homes/yguo704/dsrl_pi0-envfix",
   "CondaRoot": "/mnt/slurmfs-4090node1/homes/yguo704/miniforge3",
   "CondaEnv": "dsrl_pi0",

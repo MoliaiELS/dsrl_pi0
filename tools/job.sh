@@ -5,13 +5,17 @@ mode="$5"; config="$6"; seed="$7"; restore_path="${8:-}"
 gate_job="${9:-}"
 source "$conda_root/etc/profile.d/conda.sh"
 conda activate "$conda_env"
+if [[ "$mode" == 'research' || "$mode" == 'research-smoke' ]]; then
+    export DSRL_BASH_SETUP="${DSRL_BASH_SETUP:-$(python -c 'import json; print(json.load(open("'"$repo"'/tools/remote.json"))["BashSetupPath"])')}"
+    source "$DSRL_BASH_SETUP"
+fi
 cd "$repo"
 export DSRL_DATA_ROOT="$data_root"
 source tools/remote-env.sh
 run_dir="$DSRL_DATA_ROOT/runs/job-$SLURM_JOB_ID"
 mkdir -p "$run_dir/libero_config"
 if [[ -n "$gate_job" ]]; then
-    test "$mode" = 'outcome'
+    if [[ "$mode" == 'outcome' ]]; then
     python - "$gate_job" "$config" "$run_dir" <<'PY'
 import hashlib, json, os, subprocess, sys
 from pathlib import Path
@@ -28,6 +32,7 @@ check = {'smoke_job_id': job, 'passed': True, 'commit': commit, 'protocol_file_s
 (Path(output) / 'gate_check.json').write_text(json.dumps(check, indent=2))
 print('DEFERRED_SMOKE_GATE', json.dumps(check), flush=True)
 PY
+    fi
 fi
 export LIBERO_CONFIG_PATH="$run_dir/libero_config"
 export DSRL_MODEL_PATH="$DSRL_DATA_ROOT/checkpoints/pi0_libero"
@@ -68,7 +73,13 @@ if [[ "$mode" == 'env' ]]; then
     python -u tools/sac_probe.py "$run_dir"
 else
     test -f "$DSRL_MODEL_PATH/download_manifest.json"
-    if [[ "$mode" == 'outcome' || "$mode" == 'outcome-smoke' ]]; then
+    if [[ "$mode" == 'research' || "$mode" == 'research-smoke' ]]; then
+        research_output="${restore_path:-$run_dir}"
+        research_args=(--protocol "$config" --output "$research_output" --resume)
+        if [[ "$mode" == 'research-smoke' ]]; then research_args+=(--phase e0); fi
+        if [[ -n "$gate_job" ]]; then research_args+=(--gate-job "$gate_job"); fi
+        python -u -m tools.research_runner "${research_args[@]}"
+    elif [[ "$mode" == 'outcome' || "$mode" == 'outcome-smoke' ]]; then
         python -u -m tools.outcome_probe --mode "$mode" --config "$config" --seed "$seed" --output "$run_dir"
     elif [[ "$mode" == 'probe' || "$mode" == 'probe-smoke' ]]; then
         python -u -m tools.control_probe --mode "$mode" --config "$config" --seed "$seed" --output "$run_dir"

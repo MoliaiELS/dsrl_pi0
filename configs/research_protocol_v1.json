@@ -1,0 +1,1303 @@
+{
+  "schema_version": 1,
+  "protocol_id": "dsrl-vla-language-stage-v1-20261027",
+  "status": "PROPOSED_NOT_EXECUTED",
+  "description": "供 Codex 实现的科学实验规约；不是现有 outcome_probe 或 RLinf 可直接读取的原生配置。",
+  "default_preset": "first_batch",
+  "source_revisions": {
+    "project_repository": "https://github.com/MoliaiELS/dsrl_pi0",
+    "project_branch": "experiment/libero-baseline-20261018",
+    "audited_project_commit": "4774febfa18cc64f3c28e6f39d63bee28676a8fb",
+    "libero_commit": "87edbd1b823e464bc66557d213cc45e9f88aa543",
+    "openpi_commit": "a6d2400d2534ce32e7bdf8747709b97aaef8ec04",
+    "rlinf_commit": "fab7f407fbc611085eb163962e3c89c0ab424c1a",
+    "report_url": "https://app.notion.com/p/DSRL-LIBERO-2026-10-21-400d26c2767d810a875ede5797067b5b"
+  },
+  "execution": {
+    "required_new_entrypoint": "tools/research_runner.py",
+    "required_new_goal_probe": "tools/language_goal_probe.py",
+    "source_bash_sh_before_remote_commands": true,
+    "remote_alias_hint": "idac_sever",
+    "long_jobs_use_slurm": true,
+    "compute_gpus_per_job": 1,
+    "cpus_per_job": 8,
+    "first_batch_max_concurrent_gpu_jobs": 1,
+    "first_batch_total_physical_step_cap": 450000,
+    "first_batch_max_allocated_gpu_hours": 24,
+    "technical_retry_limit_per_case": 2,
+    "new_learning_runs_in_first_batch": 0,
+    "write_raw_results_atomically": true,
+    "checkpoint_paths_resolved_from_existing_manifests": true,
+    "required_resolved_fields": [
+      "code_commit",
+      "model_path",
+      "norm_stats_path",
+      "model_hashes",
+      "controller_paths",
+      "slurm_profile",
+      "bash_setup_path",
+      "sampling_settings",
+      "task_name_to_id",
+      "prompt_token_audit"
+    ],
+    "seed_collision_policy": "先扫描已有 manifests；如命名空间冲突，在任何新结果产生前整体平移该阶段的开发/确认/保留块并锁定，不按策略表现选择种子。",
+    "complete_requires_all_planned_cases": true,
+    "execution_statuses": [
+      "COMPLETE",
+      "PARTIAL_BUDGET",
+      "BLOCKED_ENVIRONMENT",
+      "BLOCKED_DATA",
+      "ENGINEERING_ERROR"
+    ],
+    "case_statuses": [
+      "COMPLETE",
+      "POLICY_FAILURE",
+      "INVALID_CONSTRUCTION",
+      "ENGINEERING_ERROR"
+    ],
+    "scientific_decisions": [
+      "LANGUAGE_INTERFACE_USABLE",
+      "GOAL_BIAS_CANDIDATE",
+      "EXECUTION_BOTTLENECK",
+      "STAGE_SIGNAL_CANDIDATE",
+      "INCONCLUSIVE"
+    ]
+  },
+  "shared_eval": {
+    "model_config": "pi0_libero",
+    "model_architecture": "pi0",
+    "rendered_image_size": [
+      256,
+      256
+    ],
+    "model_image_size": [
+      224,
+      224
+    ],
+    "cameras": [
+      "agentview_image",
+      "robot0_eye_in_hand_image"
+    ],
+    "proprio_dim": 8,
+    "robot_action_dim": 7,
+    "model_action_horizon": 50,
+    "model_latent_dim": 32,
+    "execute_action_chunk": 20,
+    "denoise_steps": 10,
+    "denoise_steps_require_runtime_assertion": true,
+    "simulator_control_hz": 20,
+    "warmup_steps": 0,
+    "initial_state_source": "seeded env.reset; not canonical pruned_init",
+    "max_prompt_tokens": 48,
+    "fail_on_prompt_truncation": true,
+    "prompt_change_at_chunk_boundary_only": true,
+    "discard_unused_predicted_actions": true,
+    "replay_tolerance": {
+      "physics_atol": 1e-8,
+      "proprio_atol": 1e-7,
+      "image_atol": 0,
+      "action_atol": 0.00001
+    },
+    "sampling_key_formula": "jax.random.fold_in(PRNGKey(73000 + reset_seed + 100000 * sampling_seed), query_index)",
+    "sampling_seed_roles": "独立于 controller_training_seed 和 reset_seed",
+    "evaluation_updates": 0,
+    "evaluation_replay_insertions": 0,
+    "e1_ignore_native_goal_done": true,
+    "e1_ignore_internal_horizon_done": true,
+    "grasp_stable_low_level_steps": 3,
+    "action_transform_policy": "复用原observation与output transform，infer返回动作直接env.step；禁止新增二值化、翻符号、重复normalize或clip"
+  },
+  "seed_splits": {
+    "old_reserved_do_not_use": [
+      200,
+      201,
+      202,
+      203,
+      204,
+      205,
+      206,
+      207,
+      208,
+      209
+    ],
+    "e0_technical": [
+      9000,
+      9001,
+      9002,
+      9003,
+      9004,
+      9005,
+      9006,
+      9007,
+      9008,
+      9009
+    ],
+    "e1_development": [
+      3000,
+      3001,
+      3002,
+      3003,
+      3004,
+      3005,
+      3006,
+      3007,
+      3008,
+      3009
+    ],
+    "e1_auxiliary": [
+      3000,
+      3001,
+      3002,
+      3003,
+      3004
+    ],
+    "e1_confirmation": [
+      3100,
+      3101,
+      3102,
+      3103,
+      3104,
+      3105,
+      3106,
+      3107,
+      3108,
+      3109,
+      3110,
+      3111,
+      3112,
+      3113,
+      3114,
+      3115,
+      3116,
+      3117,
+      3118,
+      3119,
+      3120,
+      3121,
+      3122,
+      3123,
+      3124,
+      3125,
+      3126,
+      3127,
+      3128,
+      3129,
+      3130,
+      3131,
+      3132,
+      3133,
+      3134,
+      3135,
+      3136,
+      3137,
+      3138,
+      3139
+    ],
+    "e1_reserved": [
+      3200,
+      3201,
+      3202,
+      3203,
+      3204,
+      3205,
+      3206,
+      3207,
+      3208,
+      3209,
+      3210,
+      3211,
+      3212,
+      3213,
+      3214,
+      3215,
+      3216,
+      3217,
+      3218,
+      3219,
+      3220,
+      3221,
+      3222,
+      3223,
+      3224,
+      3225,
+      3226,
+      3227,
+      3228,
+      3229,
+      3230,
+      3231,
+      3232,
+      3233,
+      3234,
+      3235,
+      3236,
+      3237,
+      3238,
+      3239
+    ],
+    "e2_development": [
+      4000,
+      4001,
+      4002,
+      4003,
+      4004,
+      4005,
+      4006,
+      4007,
+      4008,
+      4009
+    ],
+    "e2_confirmation": [
+      4100,
+      4101,
+      4102,
+      4103,
+      4104,
+      4105,
+      4106,
+      4107,
+      4108,
+      4109,
+      4110,
+      4111,
+      4112,
+      4113,
+      4114,
+      4115,
+      4116,
+      4117,
+      4118,
+      4119,
+      4120,
+      4121,
+      4122,
+      4123,
+      4124,
+      4125,
+      4126,
+      4127,
+      4128,
+      4129,
+      4130,
+      4131,
+      4132,
+      4133,
+      4134,
+      4135,
+      4136,
+      4137,
+      4138,
+      4139
+    ],
+    "e2_reserved": [
+      4200,
+      4201,
+      4202,
+      4203,
+      4204,
+      4205,
+      4206,
+      4207,
+      4208,
+      4209,
+      4210,
+      4211,
+      4212,
+      4213,
+      4214,
+      4215,
+      4216,
+      4217,
+      4218,
+      4219,
+      4220,
+      4221,
+      4222,
+      4223,
+      4224,
+      4225,
+      4226,
+      4227,
+      4228,
+      4229,
+      4230,
+      4231,
+      4232,
+      4233,
+      4234,
+      4235,
+      4236,
+      4237,
+      4238,
+      4239
+    ],
+    "sft_goal_fresh_check": [
+      3300,
+      3301,
+      3302,
+      3303,
+      3304,
+      3305,
+      3306,
+      3307,
+      3308,
+      3309,
+      3310,
+      3311,
+      3312,
+      3313,
+      3314,
+      3315,
+      3316,
+      3317,
+      3318,
+      3319
+    ],
+    "sft_stage_fresh_check": [
+      4300,
+      4301,
+      4302,
+      4303,
+      4304,
+      4305,
+      4306,
+      4307,
+      4308,
+      4309,
+      4310,
+      4311,
+      4312,
+      4313,
+      4314,
+      4315,
+      4316,
+      4317,
+      4318,
+      4319
+    ],
+    "ppo_validation": [
+      6100,
+      6101,
+      6102,
+      6103,
+      6104,
+      6105,
+      6106,
+      6107,
+      6108,
+      6109
+    ],
+    "ppo_final_test": [
+      6200,
+      6201,
+      6202,
+      6203,
+      6204,
+      6205,
+      6206,
+      6207,
+      6208,
+      6209,
+      6210,
+      6211,
+      6212,
+      6213,
+      6214,
+      6215,
+      6216,
+      6217,
+      6218,
+      6219,
+      6220,
+      6221,
+      6222,
+      6223,
+      6224,
+      6225,
+      6226,
+      6227,
+      6228,
+      6229,
+      6230,
+      6231,
+      6232,
+      6233,
+      6234,
+      6235,
+      6236,
+      6237,
+      6238,
+      6239
+    ],
+    "deployment_final_test": [
+      6300,
+      6301,
+      6302,
+      6303,
+      6304,
+      6305,
+      6306,
+      6307,
+      6308,
+      6309,
+      6310,
+      6311,
+      6312,
+      6313,
+      6314,
+      6315,
+      6316,
+      6317,
+      6318,
+      6319,
+      6320,
+      6321,
+      6322,
+      6323,
+      6324,
+      6325,
+      6326,
+      6327,
+      6328,
+      6329,
+      6330,
+      6331,
+      6332,
+      6333,
+      6334,
+      6335,
+      6336,
+      6337,
+      6338,
+      6339
+    ],
+    "recovery_development": [
+      7000,
+      7001,
+      7002,
+      7003,
+      7004,
+      7005,
+      7006,
+      7007,
+      7008,
+      7009
+    ],
+    "recovery_confirmation": [
+      7100,
+      7101,
+      7102,
+      7103,
+      7104,
+      7105,
+      7106,
+      7107,
+      7108,
+      7109,
+      7110,
+      7111,
+      7112,
+      7113,
+      7114,
+      7115,
+      7116,
+      7117,
+      7118,
+      7119,
+      7120,
+      7121,
+      7122,
+      7123,
+      7124,
+      7125,
+      7126,
+      7127,
+      7128,
+      7129,
+      7130,
+      7131,
+      7132,
+      7133,
+      7134,
+      7135,
+      7136,
+      7137,
+      7138,
+      7139
+    ],
+    "ppo_training_ranges": {
+      "0": [
+        100000,
+        199999
+      ],
+      "1": [
+        200000,
+        299999
+      ],
+      "2": [
+        300000,
+        399999
+      ],
+      "17": [
+        400000,
+        499999
+      ]
+    },
+    "evaluation_sampling_development": [
+      0
+    ],
+    "evaluation_sampling_confirmation": [
+      0,
+      1
+    ],
+    "ppo_training_seeds": [
+      0,
+      1,
+      2
+    ],
+    "ppo_pilot_seed": 17,
+    "analysis_bootstrap_seed": 99021,
+    "case_order_seed": 99022
+  },
+  "e1": {
+    "physical_task_name": "LIVING_ROOM_SCENE3_pick_up_the_cream_cheese_and_put_it_in_the_tray",
+    "task_suite": "libero_90",
+    "audited_task_id": 57,
+    "fixed_physical_environment_for_all_prompts": true,
+    "horizon": 400,
+    "stop_on_goal": false,
+    "goals": [
+      {
+        "id": "A",
+        "object": "cream_cheese_1",
+        "text": "pick up the cream cheese and put it in the tray",
+        "predicate": [
+          "in",
+          "cream_cheese_1",
+          "wooden_tray_1_contain_region"
+        ]
+      },
+      {
+        "id": "B",
+        "object": "butter_1",
+        "text": "pick up the butter and put it in the tray",
+        "predicate": [
+          "in",
+          "butter_1",
+          "wooden_tray_1_contain_region"
+        ]
+      }
+    ],
+    "reserved_goal_C": {
+      "object": "alphabet_soup_1",
+      "enabled": false,
+      "reason": "后续新目标扩展，不能因 B 失败自动替换"
+    },
+    "policies": [
+      {
+        "id": "base",
+        "noise": "gaussian_full",
+        "shape": [
+          50,
+          32
+        ]
+      },
+      {
+        "id": "bounded_random",
+        "noise": "uniform_repeat",
+        "low": -1,
+        "high": 1,
+        "sample_dim": 32,
+        "repeat": 50
+      },
+      {
+        "id": "dsrl_s0",
+        "noise": "trained_sac",
+        "controller_training_seed": 0,
+        "source_run": "runs/job-18046",
+        "checkpoint_step": 500000
+      },
+      {
+        "id": "dsrl_s1",
+        "noise": "trained_sac",
+        "controller_training_seed": 1,
+        "source_run": "runs/job-18103",
+        "checkpoint_step": 500000
+      },
+      {
+        "id": "dsrl_s2",
+        "noise": "trained_sac",
+        "controller_training_seed": 2,
+        "source_run": "runs/job-18123",
+        "checkpoint_step": 500000
+      }
+    ],
+    "auxiliary_prompts": [
+      {
+        "id": "A_paraphrase",
+        "text": "place the cream cheese in the tray",
+        "requested_goal_id": "A"
+      },
+      {
+        "id": "empty",
+        "text": "",
+        "requested_goal_id": null
+      },
+      {
+        "id": "unrelated",
+        "text": "the weather is pleasant today",
+        "requested_goal_id": null
+      }
+    ],
+    "auxiliary_policies": [
+      "base",
+      "dsrl_s0"
+    ],
+    "primary_metrics": [
+      "correct_first_grasp",
+      "language_intervention_L",
+      "active_goal_ever_success"
+    ],
+    "secondary_metrics": [
+      "pair_both_correct",
+      "first_grasp_confusion",
+      "wrong_target_bias",
+      "active_goal_first_step",
+      "goal_A_ever",
+      "goal_B_ever",
+      "both_goals_ever",
+      "active_goal_final",
+      "first_contact",
+      "first_lift",
+      "active_goal_stable_released_success",
+      "active_goal_first_completion_without_prior_wrong_goal"
+    ],
+    "first_grasp_classes": [
+      "A",
+      "B",
+      "OTHER",
+      "MULTIPLE",
+      "NONE"
+    ],
+    "construction_exclusions": [
+      "missing_object_or_predicate",
+      "nonfinite_initial_data",
+      "goal_already_true_at_t0",
+      "candidate_already_grasped_at_t0",
+      "common_state_replay_mismatch"
+    ],
+    "forbidden_exclusions": [
+      "base_fails_goal_B",
+      "dsrl_fails",
+      "instruction_has_no_effect"
+    ],
+    "no_prompt_return_to_original": true,
+    "first_grasp_tie_rule": "每对象连续计数；最早达3步的那一帧，仅一个对象达阈值则分类A/B/OTHER，多个同时达阈值则MULTIPLE；锁定后不改写；无事件NONE",
+    "stable_released_definition": "active official predicate AND target not grasped 连续3个低层控制步",
+    "selective_first_completion_definition": "active raw first step存在，wrong不存在或严格更晚；同时完成为false"
+  },
+  "e2": {
+    "horizon": 600,
+    "stop_on_official_goal": true,
+    "policy": "base",
+    "conditions": [
+      "global",
+      "fixed_stage",
+      "oracle_stage"
+    ],
+    "prompt_global_template": "Goal: {goal}.",
+    "prompt_stage_template": "Goal: {goal}. Next: {stage}.",
+    "switch_query_boundary": true,
+    "oracle_only_current_state": true,
+    "oracle_hysteresis_low_level_steps": 3,
+    "fixed_switch_rule": "在该任务 E2-dev 的 global 条件中，取首次通过第一阶段判据的时间中位数，向上取整到20步，再截断至[100,300]；无可用事件时T1=200、T2=300。确认前锁定。",
+    "tasks": [
+      {
+        "id": "T1",
+        "task_name": "KITCHEN_SCENE1_open_the_top_drawer_of_the_cabinet_and_put_the_bowl_in_it",
+        "global_goal": "open the top drawer of the cabinet and put the bowl in it",
+        "stage_0": "Open the top drawer",
+        "stage_1": "Place the bowl inside it",
+        "stage_0_done": [
+          "open",
+          "wooden_cabinet_1_top_region"
+        ],
+        "goal": [
+          "and",
+          [
+            "open",
+            "wooden_cabinet_1_top_region"
+          ],
+          [
+            "in",
+            "akita_black_bowl_1",
+            "wooden_cabinet_1_top_region"
+          ]
+        ],
+        "fixed_fallback_step": 200
+      },
+      {
+        "id": "T2",
+        "task_name": "KITCHEN_SCENE10_put_the_butter_at_the_front_in_the_top_drawer_of_the_cabinet_and_close_it",
+        "global_goal": "put the butter at the front in the top drawer of the cabinet and close it",
+        "stage_0": "Place the front butter inside it",
+        "stage_1": "Close the top drawer",
+        "stage_0_done": [
+          "in",
+          "butter_1",
+          "wooden_cabinet_1_top_region"
+        ],
+        "stage_0_also_requires_not_grasped": true,
+        "goal": [
+          "and",
+          [
+            "in",
+            "butter_1",
+            "wooden_cabinet_1_top_region"
+          ],
+          [
+            "close",
+            "wooden_cabinet_1_top_region"
+          ]
+        ],
+        "fixed_fallback_step": 300
+      }
+    ],
+    "oracle_rollback_on_stage_0_predicate_false": true,
+    "primary_metrics": [
+      "official_global_success",
+      "paired_oracle_minus_global",
+      "paired_oracle_minus_fixed"
+    ],
+    "secondary_metrics": [
+      "first_stage_completion",
+      "stage_transition_time",
+      "last_stage_success_given_transition",
+      "timeout",
+      "subgoal_repetition",
+      "goal_reversal"
+    ],
+    "confirmation_gate": {
+      "min_oracle_success_on_one_task": 0.4,
+      "min_net_saved_states_vs_global_on_one_task": 2,
+      "require_localized_stage_failure_evidence": true,
+      "run_both_tasks_if_gate_passes": true
+    },
+    "predicate_api": "完整goal用各任务env.check_success，或逐叶predicate求AND；嵌套AND声明不能直接传_eval_predicate",
+    "hysteresis": "每低层步累计完整stage0复合判据真假计数；query边界前进或回退；官方完整goal优先终止"
+  },
+  "stats": {
+    "independent_cluster": "reset seed within task; keep all prompt/noise/policy branches paired",
+    "bootstrap_replicates": 10000,
+    "confidence_level": 0.95,
+    "dsrl_report_each_seed": true,
+    "dsrl_mean_scope": "这三个固定控制器的均值",
+    "e1_primary_contrasts": [
+      "mean(dsrl_s0,dsrl_s1,dsrl_s2)-base",
+      "mean(dsrl_s0,dsrl_s1,dsrl_s2)-bounded_random"
+    ],
+    "primary_report_effects_and_intervals": true,
+    "optional_p_value_policy": "如报告主比较的 p 值，对全部预注册主对比及两个主轴实施 Holm；不把多重未校正探索当确认",
+    "degenerate_bootstrap_warning": true,
+    "missing_results": "报告 planned/attempted/valid；主配对仅用完整 cluster，同时提供缺失结果最坏/最好界，不补成成功或静默删失败。",
+    "success_time_metric": "失败按horizon记入 restricted time-to-success；成功回合均值另列，不单独比较",
+    "scientific_gates_are_not_significance_claims": true
+  },
+  "decisions": {
+    "minimum_complete_confirmation_clusters": 32,
+    "usable_language_interface": {
+      "min_correct_first_grasp_each_goal": 0.6,
+      "min_pair_both_correct": 0.5,
+      "min_L": 0.2,
+      "min_ever_success_each_goal": 0.2
+    },
+    "dsrl_goal_bias_flag": {
+      "min_additional_wrong_A_under_B_vs_base": 0.2,
+      "min_affected_controllers": 2,
+      "interpretation": "单任务控制器偏置候选；需结合随机噪声对照和区间"
+    },
+    "execution_bottleneck_flag": {
+      "min_correct_first_grasp": 0.6,
+      "max_active_success": 0.2
+    },
+    "uncertainty_action": "INCONCLUSIVE；不自动追加保留集、不替换任务、不搜索直到正结果",
+    "first_batch_finish_after": [
+      "e0",
+      "e1_dev",
+      "e1_aux",
+      "e1_confirm",
+      "e2_dev"
+    ],
+    "first_batch_execution_order": [
+      "e0",
+      "e1_dev",
+      "e1_aux",
+      "e2_dev_global",
+      "calibrate_fixed_schedule",
+      "e2_dev_fixed_and_oracle",
+      "freeze_full_protocol",
+      "e1_confirm"
+    ]
+  },
+  "sft_fallback": {
+    "enabled_by_default": false,
+    "supported_profiles": [
+      "goal_interface_repair",
+      "stage_interface_warmstart"
+    ],
+    "goal_interface_repair": {
+      "demonstrations_per_goal": 50,
+      "train_per_goal": 40,
+      "validation_per_goal": 10,
+      "goals": [
+        "A",
+        "B"
+      ],
+      "use_only_correct_global_labels": true
+    },
+    "stage_interface_warmstart": {
+      "demonstrations_per_task": 25,
+      "train_per_task": 20,
+      "validation_per_task": 5,
+      "tasks": [
+        "T1",
+        "T2"
+      ],
+      "global_and_stage_prompt_sampling": [
+        0.5,
+        0.5
+      ],
+      "mask_actions_crossing_stage_boundary": false,
+      "require_full_50_action_same_stage_windows": true,
+      "global_and_stage_share_identical_windows": true,
+      "no_stage_windows_status": "BLOCKED_DATA_for_stage_interface",
+      "window_policy": "full_horizon_same_stage",
+      "require_full_horizon_real_actions": true
+    },
+    "trajectory_split_seed": 99023,
+    "checkpoint_source": "共同 pi0_libero；不得用另一 few-shot 底座替换",
+    "model_type": "openpi",
+    "pi05": false,
+    "is_lora": true,
+    "lora_rank": 8,
+    "lora_alpha": 8,
+    "lora_dropout": 0,
+    "lora_target_scope": "all_linear",
+    "require_vlm_and_action_expert_coverage_audit": true,
+    "global_batch_size": 8,
+    "micro_batch_size": 1,
+    "learning_rate": 0.0001,
+    "lr_warmup_steps": 100,
+    "clip_grad": 1,
+    "pilot_updates": 500,
+    "max_updates": 3000,
+    "save_every_updates": 500,
+    "seed": 17,
+    "validation_selection": "最小held-out trajectory flow-matching loss；并报告各目标loss；行为验证不能循环调test",
+    "no_online_reinforcement_updates": true,
+    "merge_and_forward_parity_before_ppo": true,
+    "max_total_updates_across_profiles": 3000,
+    "if_both_profiles": {
+      "order": [
+        "goal_interface_repair",
+        "stage_interface_warmstart"
+      ],
+      "max_updates_each": 1500,
+      "pilot_updates_each": 500,
+      "second_initial_checkpoint": "first profile selected/validated checkpoint",
+      "must_select_plan_before_first_update": true
+    }
+  },
+  "ppo": {
+    "enabled_by_default": false,
+    "backend": "RLinf native openpi",
+    "template": "examples/embodiment/config/libero_spatial_ppo_openpi_quickstart.yaml",
+    "groups": [
+      "G_global",
+      "GS_global_oracle_stage"
+    ],
+    "task_ids_resolve_by_name": [
+      "T1",
+      "T2"
+    ],
+    "task_mix": "每个任务4个并行环境；有效交互预算尽量各半，逐任务记录",
+    "actor": {
+      "model_type": "openpi",
+      "pi05": false,
+      "is_lora": false,
+      "num_action_chunks": 20,
+      "num_steps": 10,
+      "add_value_head": true,
+      "train_expert_only": true,
+      "openpi_task": "rl",
+      "action_horizon": 50,
+      "action_chunk": 20,
+      "noise_method": "flow_sde",
+      "detach_critic_input": true,
+      "micro_batch_size": 1,
+      "global_batch_size": 80,
+      "enable_offload": true,
+      "lr": 0.000001,
+      "value_lr": 0.0001,
+      "clip_grad": 1
+    },
+    "env": {
+      "total_num_envs": 8,
+      "rollout_epoch": 1,
+      "max_episode_steps": 600,
+      "max_steps_per_rollout_epoch": 200,
+      "auto_reset": true,
+      "ignore_terminations": false,
+      "specific_reset_id": null,
+      "use_rel_reward": true,
+      "use_step_penalty": false,
+      "reward_coef": 1,
+      "warmup_steps": 0
+    },
+    "algorithm": {
+      "update_epoch": 4,
+      "adv_type": "gae",
+      "loss_type": "actor_critic",
+      "gamma_per_chunk": 0.99,
+      "gae_lambda": 0.95,
+      "clip_ratio_low": 0.2,
+      "clip_ratio_high": 0.2,
+      "clip_ratio_c": 3,
+      "value_clip": 0.2,
+      "entropy_bonus": 0,
+      "kl_beta": 0,
+      "normalize_advantages": true,
+      "bootstrap_type": "standard"
+    },
+    "rollout": {
+      "pipeline_stage_num": 1,
+      "enable_offload": true
+    },
+    "reward": "仅官方完整goal首次达成+1，其余0；不加阶段奖励",
+    "truncation": "200步fragment不reset；600步TimeLimit为truncation，使用terminal observation bootstrap；成功为true terminal。",
+    "pilot": {
+      "training_seed": 17,
+      "valid_env_steps_per_run": 100000,
+      "groups": 2,
+      "evaluation_checkpoints": [
+        0,
+        25000,
+        50000,
+        75000,
+        100000
+      ],
+      "max_iterations_safety": 80,
+      "max_gpu_hours_per_run": 24
+    },
+    "formal": {
+      "training_seeds": [
+        0,
+        1,
+        2
+      ],
+      "valid_env_steps_per_run": 500000,
+      "groups": 2,
+      "runs": 6,
+      "total_target_valid_env_steps": 3000000,
+      "evaluation_checkpoints": [
+        0,
+        100000,
+        200000,
+        300000,
+        400000,
+        500000
+      ],
+      "max_iterations_safety": 400,
+      "max_gpu_hours_per_run": 72
+    },
+    "allowed_budget_overshoot_valid_steps": 1600,
+    "primary_checkpoint": "首次达到目标有效步预算的完整rollout checkpoint，最多target+1600；cap前未达到则PARTIAL_BUDGET",
+    "final_test_sampling_seeds": [
+      0,
+      1
+    ],
+    "formal_gate": "profile与迁移parity通过；两组完整pilot无数值错误；至少有成功奖励和可解释的学习/阶段接口信号。若两组无reward，先共同SFT，不盲开formal。",
+    "final_metrics": [
+      "per_task_success",
+      "macro_success",
+      "sample_efficiency_auc",
+      "correct_goal_selection_retention",
+      "trainable_weight_delta",
+      "VLM_frozen_hash"
+    ],
+    "reward_implementation_requirement": "先屏蔽第一次success之后的chunk动作与奖励，再聚合；验证先success后goal丢失不会产生额外-1。relative_reward flag本身不足。",
+    "buffer_condition_integrity": "每chunk保存真实prompt/tokens/mask/phase与next observation phase；重算logprob与bootstrap分别使用对应历史条件。 同时保存old_log_prob；reset时清空phase与history。",
+    "evaluation_budgets": {
+      "pilot_validation": {
+        "episodes": 200,
+        "max_physical_steps": 120000
+      },
+      "formal_validation": {
+        "episodes": 720,
+        "max_physical_steps": 432000
+      },
+      "formal_final_test": {
+        "episodes": 960,
+        "max_physical_steps": 576000
+      },
+      "shared_zero_training_final_test": {
+        "episodes": 320,
+        "max_physical_steps": 192000
+      },
+      "formal_retention_e1": {
+        "episodes": 960,
+        "max_physical_steps": 384000
+      },
+      "shared_zero_training_retention_e1": {
+        "episodes": 160,
+        "max_physical_steps": 64000
+      }
+    },
+    "initial_state_mode": "raw_seeded_reset_adapter_required; bypass pruned_init",
+    "initial_state_audit": [
+      "reset_seed",
+      "generator_version",
+      "initial_state_hash",
+      "called_set_init_state",
+      "train_validation_test_namespace"
+    ],
+    "terminal_likelihood_policy": "保留完整20动作chunk联合old/new log-prob定义；奖励只含首次done前有效前缀；不任意mask动作维假称prefix marginal；mask需贯通奖励聚合和trajectory构造"
+  },
+  "later_modules": {
+    "layout_counterfactual": {
+      "default": false,
+      "reset_split": "e1_confirmation",
+      "conditions": [
+        "original",
+        "swap_A_B_xy"
+      ],
+      "policies": "all e1 policies",
+      "goals": [
+        "A",
+        "B"
+      ],
+      "sampling_seeds": [
+        0,
+        1
+      ],
+      "new_branches": 800,
+      "max_new_policy_steps": 320000,
+      "rule": "作为预注册附加物理布局，不能看到原布局结果后挑多个偏移中的最佳；交换xy保留各对象yaw与合法支撑高度，几何/碰撞合法性对所有方法统一；原布局与交换布局配对报告"
+    },
+    "local_skill_chain_probe": {
+      "default": false,
+      "tasks": [
+        "T1",
+        "T2"
+      ],
+      "reference_source": "E2-dev global first-stage successful prefixes",
+      "max_references_per_task": 10,
+      "max_new_branches": 40,
+      "max_new_policy_steps": 24000,
+      "conditions": [
+        "global_continue",
+        "local_stage_continue"
+      ],
+      "selection": "按reset排序前10个有效prefix；失败构造全部计数。只判断阶段衔接，不称独立技能绝对能力。"
+    },
+    "deployable_stage": {
+      "default": false,
+      "trigger": "E2确认或PPO中GS相对G有值得解释的优势",
+      "inputs": [
+        "current_and_previous_2_queries_RGB_features",
+        "proprio",
+        "global_goal"
+      ],
+      "forbidden_inputs": [
+        "simulator_object_pose",
+        "ground_truth_predicate",
+        "future_frame",
+        "time_to_completion",
+        "oracle_stage_tokens",
+        "ground_truth_stage"
+      ],
+      "feature_encoder": "冻结视觉encoder并均值池化；如用VLM prefix必须以global-only文本重新编码，训练/验证/部署均禁止oracle stage信息泄漏。",
+      "estimator": {
+        "hidden_dims": [
+          256,
+          256
+        ],
+        "activation": "gelu",
+        "dropout": 0.1,
+        "learning_rate": 0.001,
+        "weight_decay": 0.0001,
+        "batch_size": 256,
+        "max_epochs": 20,
+        "max_updates": 10000,
+        "trajectory_validation_fraction": 0.2,
+        "training_seed": 17,
+        "class_balance": true
+      },
+      "switch": "每20步查询；相同新阶段连续2次argmax才切换；第一阶段按任务初始定义；允许回退。",
+      "final_conditions": [
+        "G_global",
+        "GS_oracle",
+        "GS_predicted"
+      ],
+      "final_test_split": "deployment_final_test",
+      "noise_seeds": [
+        0,
+        1
+      ],
+      "policy_training_seeds": [
+        0,
+        1,
+        2
+      ],
+      "final_branches": 1440,
+      "max_policy_steps": 864000
+    },
+    "stage_id_control": {
+      "default": false,
+      "trigger": "只有拟主张自然语言表示具有独特收益时",
+      "training_groups": 1,
+      "training_seeds": [
+        0,
+        1,
+        2
+      ],
+      "valid_env_steps_per_run": 500000,
+      "total_target_valid_env_steps": 1500000,
+      "rule": "与GS同样训练、数据、参数、预算；稳定stage ID取代stage自然语言，不能拿zero-shot陌生ID对比训练过的语言"
+    },
+    "recovery": {
+      "default": false,
+      "trigger": "完整任务存在可恢复的执行失败，且共同参考物理构造开发通过",
+      "tasks": [
+        "T1",
+        "T2"
+      ],
+      "conditions": [
+        "sham_closed",
+        "physical_drop"
+      ],
+      "reference_policy": "锁定的共同训练前checkpoint与global提示；不按被测policy分别挑状态",
+      "max_reference_prefix_steps": 300,
+      "grasp_stable_steps": 3,
+      "min_lift_m": 0.04,
+      "stable_hold_steps": [
+        20,
+        60
+      ],
+      "intervention_steps": 20,
+      "min_drop_m": 0.02,
+      "max_horizontal_drift_m": 0.08,
+      "reachability_and_no_interpenetration_required": true,
+      "episode_total_budget": 600,
+      "prefix_and_intervention_counted": true,
+      "development_split": "recovery_development",
+      "confirmation_split": "recovery_confirmation",
+      "formal_policy_groups": [
+        "G_global",
+        "GS_predicted"
+      ],
+      "training_seeds": [
+        0,
+        1,
+        2
+      ],
+      "sampling_seeds": [
+        0,
+        1
+      ],
+      "max_formal_branches": 1920,
+      "max_continuation_policy_steps_upper_bound": 1152000,
+      "report_trigger_and_validation_coverage_separately": true,
+      "sham_validation": "仍稳定抓持、未发生真实掉落；不要求落地和2cm落差",
+      "drop_validation": "落差>=2cm，桌面支撑，可达，无严重穿透，水平漂移<=8cm",
+      "paired_reference_requirement": "sham/drop分别通过物理验证；不按任何被测策略结果筛选"
+    }
+  },
+  "matrices": [
+    {
+      "id": "e0",
+      "default": true,
+      "max_cases": 20,
+      "horizon": 40,
+      "cap": 800
+    },
+    {
+      "id": "e1_dev",
+      "default": true,
+      "reset_split": "e1_development",
+      "dimensions": {
+        "goal": 2,
+        "sampling_seed": 1,
+        "policy": 5
+      },
+      "horizon": 400,
+      "expected_cases": 100
+    },
+    {
+      "id": "e1_aux",
+      "default": true,
+      "reset_split": "e1_auxiliary",
+      "dimensions": {
+        "auxiliary_prompt": 3,
+        "policy": 2,
+        "sampling_seed": 1
+      },
+      "horizon": 400,
+      "expected_cases": 30
+    },
+    {
+      "id": "e1_confirm",
+      "default": true,
+      "reset_split": "e1_confirmation",
+      "dimensions": {
+        "goal": 2,
+        "sampling_seed": 2,
+        "policy": 5
+      },
+      "horizon": 400,
+      "expected_cases": 800
+    },
+    {
+      "id": "e2_dev",
+      "default": true,
+      "reset_split": "e2_development",
+      "dimensions": {
+        "task": 2,
+        "condition": 3,
+        "sampling_seed": 1
+      },
+      "horizon": 600,
+      "expected_cases": 60
+    },
+    {
+      "id": "e2_confirm",
+      "default": false,
+      "reset_split": "e2_confirmation",
+      "dimensions": {
+        "task": 2,
+        "condition": 3,
+        "sampling_seed": 2
+      },
+      "horizon": 600,
+      "expected_cases": 480
+    }
+  ],
+  "artifacts_required": [
+    "resolved_protocol.json",
+    "protocol.sha256",
+    "software_manifest.json",
+    "checkpoint_manifest.json",
+    "trainable_manifest.json",
+    "prompt_audit.json",
+    "run_manifest.json",
+    "common_states/",
+    "episodes.jsonl",
+    "events.jsonl",
+    "actions/",
+    "summary_by_condition.csv",
+    "paired_cluster_statistics.json",
+    "budget.json",
+    "decision.json",
+    "REPORT.md"
+  ]
+}

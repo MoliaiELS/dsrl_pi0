@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position=0)]
-    [ValidateSet('doctor','install-env','sync','env','smoke','eval','train','probe-smoke','probe','outcome-smoke','outcome','status','logs')]
+    [ValidateSet('doctor','install-env','sync','env','smoke','eval','train','probe-smoke','probe','outcome-smoke','outcome','research-smoke','research','status','logs')]
     [string]$Command='doctor',
     [Parameter(Position=1)][string]$JobId='',
     [string]$ConfigPath='', [string]$Commit='', [int]$Seed=0,
@@ -16,10 +16,10 @@ if ($DeferredSmokeGate -and ($Command -ne 'outcome' -or $SmokeJobId -notmatch '^
 }
 if ($DependencyJobId) {
     if ($DependencyJobId -notmatch '^\d+$') { throw 'DependencyJobId must be an explicit numeric job ID.' }
-    if ($Command -notin @('env','smoke','eval','train','probe-smoke','probe','outcome-smoke','outcome')) { throw 'Dependencies apply only to submitted jobs.' }
+    if ($Command -notin @('env','smoke','eval','train','probe-smoke','probe','outcome-smoke','outcome','research-smoke','research')) { throw 'Dependencies apply only to submitted jobs.' }
 }
 if (-not $ExperimentConfig) {
-    $ExperimentConfig=if ($Command -in @('outcome-smoke','outcome')) {'configs/libero_outcome_probe.json'} elseif ($Command -in @('probe-smoke','probe')) {'configs/libero_control_probe.json'} else {'configs/libero_baseline.json'}
+    $ExperimentConfig=if ($Command -in @('research-smoke','research')) {'configs/research_protocol_v1.json'} elseif ($Command -in @('outcome-smoke','outcome')) {'configs/libero_outcome_probe.json'} elseif ($Command -in @('probe-smoke','probe')) {'configs/libero_control_probe.json'} else {'configs/libero_baseline.json'}
 }
 if ($RestorePath -and $Command -in @('outcome-smoke','outcome')) { throw 'Set controller.run_dir in the outcome experiment config.' }
 if (-not $ConfigPath) { $ConfigPath=Join-Path $PSScriptRoot 'remote.json' }
@@ -47,10 +47,11 @@ keys=['phase','gradient_updates','wall_seconds','env_steps','chunk_transitions',
       'probe/replay_verified','probe/frozen_vla_unchanged','probe/controller_unchanged',
       'probe/cases_planned','probe/cases_successful','probe/states_built',
       'probe/settling_env_steps','probe/controller_calls','probe/validation_rollouts',
-      'workflow/current_stage','workflow/stages_completed','workflow/stages_planned']
+      'workflow/current_stage','workflow/stages_completed','workflow/stages_planned',
+      'research/current_case','research/current_steps','research/physical_steps','research/cases_completed']
 result={'directory':str(p),'run':read('run.json'),
         'metrics':{k:latest[k] for k in keys if k in latest}}
-for name in ['SUCCESS.json','FAILED.json']:
+for name in ['SUCCESS.json','FAILED.json','E0_PASS.json','decision.json','budget.json']:
     value=read(name)
     if value: result[name]={k:v for k,v in value.items() if k!='traceback'}
 metrics=p/'metrics.jsonl'
@@ -106,6 +107,10 @@ print(json.dumps(result,indent=2))
         if ($Command -eq 'doctor') { $script += 'python -u tools/check_env.py' }
         else { $script += 'bash tools/install-env.sh' }
     } else {
+        if ($Command -eq 'research') {
+            if ($SmokeJobId -notmatch '^\d+$') { throw 'Research requires a successful research-smoke -SmokeJobId.' }
+            $script += 'python -c '+(Quote-Bash ('import json,hashlib; from pathlib import Path; p=Path("'+$config.DataRoot+'/runs/job-'+$SmokeJobId+'"); r=json.loads((p/"run.json").read_text()); assert r["commit"]=="'+$Commit+'" and r["mode"]=="research-smoke" and r["protocol_file_sha256"]==hashlib.sha256(Path("'+$repo+'/'+$ExperimentConfig+'").read_bytes()).hexdigest(); assert json.loads((p/"E0_PASS.json").read_text())["passed"] and json.loads((p/"SUCCESS.json").read_text())["passed"]'))
+        }
         if ($Command -eq 'outcome') {
             if ($SmokeJobId -notmatch '^\d+$') { throw 'Outcome requires a successful -SmokeJobId from outcome-smoke.' }
             if (-not $DeferredSmokeGate) {
@@ -125,8 +130,11 @@ print(json.dumps(result,indent=2))
         }
         $mode=$Command
         if ($mode -eq 'eval') { $mode=if ($RestorePath) {'eval'} else {'base'} }
-        $limit=if ($Command -in @('env','smoke','probe-smoke','outcome-smoke')) {$config.Slurm.SmokeTime} elseif ($Command -in @('eval','probe','outcome')) {$config.Slurm.EvalTime} else {$config.Slurm.TrainTime}
+        $limit=if ($Command -in @('env','smoke','probe-smoke','outcome-smoke','research-smoke')) {$config.Slurm.SmokeTime} elseif ($Command -in @('eval','probe','outcome')) {$config.Slurm.EvalTime} else {$config.Slurm.TrainTime}
         $script += 'mkdir -p '+(Quote-Bash ($config.DataRoot+'/logs/slurm'))+' '+(Quote-Bash ($config.DataRoot+'/runs'))
+        if ($Command -in @('research','research-smoke')) {
+            $script += 'test -z "$(squeue -u "$USER" -h -o "%j" | grep "^dsrl-research" || true)" || { echo "A research GPU job already exists; wait for it before submitting another."; exit 1; }'
+        }
         $arguments=@('sbatch --parsable', ('--partition='+(Quote-Bash $config.Slurm.Partition)),
             ('--account='+(Quote-Bash $config.Slurm.Account)), ('--qos='+(Quote-Bash $config.Slurm.Qos)),
             ('--gres='+(Quote-Bash $config.Slurm.Gres)), ('--cpus-per-task='+$config.Slurm.Cpus),
@@ -141,7 +149,7 @@ print(json.dumps(result,indent=2))
             (Quote-Bash $config.CondaRoot), (Quote-Bash $config.CondaEnv),
             (Quote-Bash $config.DataRoot), (Quote-Bash $mode),
             (Quote-Bash $ExperimentConfig), [string]$Seed, (Quote-Bash $RestorePath),
-            (Quote-Bash $(if ($DeferredSmokeGate) {$SmokeJobId} else {''})))
+            (Quote-Bash $(if ($DeferredSmokeGate -or $Command -eq 'research') {$SmokeJobId} else {''})))
         $script += 'job=$('+($arguments -join ' ')+')'
         $script += 'echo "JOB_ID=$job"'
         $script += 'echo "LOG='+$config.DataRoot+'/logs/slurm/$job.log"'
