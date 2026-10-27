@@ -1,0 +1,24 @@
+STATIC PROTOCOL VALIDATION - not simulation or training
+Protocol: dsrl-vla-language-stage-v1-20261027
+SHA256: e6d1144e65192a431132d0f0ac62a7383ea04358a818bf360d280907c86ed024
+
+Matrix upper bounds:
+  e0           DEFAULT        20 cases        800 steps
+  e1_dev       DEFAULT       100 cases     40,000 steps
+  e1_aux       DEFAULT        30 cases     12,000 steps
+  e1_confirm   DEFAULT       800 cases    320,000 steps
+  e2_dev       DEFAULT        60 cases     36,000 steps
+  e2_confirm   CONDITIONAL   480 cases    288,000 steps
+
+Default cases upper bound: 1,010
+Default policy-step upper bound: 408,800
+All physical env.step cap: 450,000
+Additional construction/replay/retry allowance: 41,200
+This allowance is shared; it is not a separate unlimited budget.
+
+Conditional PPO nominal collection: 1,600 low-level steps / 80 chunks per iteration
+Formal PPO valid training target: 3,000,000 steps, excluding evaluation
+PPO effective steps require actual terminal masks; nominal counts are not results.
+
+PASS: structural constraints, split separation, matrix arithmetic and budget consistency.
+NOT CHECKED: hardware access, checkpoint contents, simulator, model parity or empirical validity.

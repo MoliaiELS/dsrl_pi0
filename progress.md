@@ -1,6 +1,14 @@
 # DSRL π₀ / LIBERO 基线进度
 
-更新时间：2026-10-21（Asia/Shanghai）。本文件记录事实状态；提交成功不等于运行成功。
+更新时间：2026-10-27（Asia/Shanghai）。本文件记录事实状态；提交成功不等于运行成功。
+
+## 新轮次：语言目标与阶段诊断 first_batch（2026-10-27；实施中）
+
+- 已完整读取用户交付的实验规约，原目录移至 `docs/protocols/dsrl_vla_protocol_20261027/`，保留原始六个文件。原协议 SHA256：`e6d1144e65192a431132d0f0ac62a7383ea04358a818bf360d280907c86ed024`；静态验证通过，不代表仿真验证通过。
+- 独立分支 `experiment/language-stage-20261027`，起点 `4774febfa18cc64f3c28e6f39d63bee28676a8fb`。本地已有 `bash.sh` 修改、远端源码未跟踪 `bash.sh` 均保留。
+- 默认仅评估冻结 pi0_libero 与已有三个 500000-update DSRL 控制器。执行顺序：E0 → E1 dev 100 → aux 30 → E2 global/校准/fixed/oracle 共60 → 统一锁定 → E1 confirmation 800。禁止用旧工具40步切回原文或原goal提前done代替新评估。
+- 上限：策略执行408800步；含构造/重放/技术重试450000物理步；累计分配GPU24小时、至多一个并发GPU作业。保留集不读取。确认集前锁定任务、提示、种子、校准和完整case manifest。
+- SSH已连通；初次doctor仅因最新提交尚无远端worktree退出，未发现依赖安装证据。本轮尚未提交GPU实验，正在实现完整回合evaluator、预算/断点续跑、统计与Slurm门禁。
 
 ## 实验报告与可视化归档（2026-10-21；已完成）
 
