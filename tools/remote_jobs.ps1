@@ -51,6 +51,12 @@ keys=['phase','gradient_updates','wall_seconds','env_steps','chunk_transitions',
       'research/current_case','research/current_steps','research/physical_steps','research/cases_completed']
 result={'directory':str(p),'run':read('run.json'),
         'metrics':{k:latest[k] for k in keys if k in latest}}
+manifest=read('case_manifest.json')
+if isinstance(manifest,list):
+    result['current_case']=next((c for c in manifest if c['id']==latest.get('research/current_case')),None)
+    phases=sorted({c['phase'] for c in manifest if c['phase']!='e0'})
+    result['research_progress']={phase:{'completed':len(list((p/'cases').glob(phase+'__*.json'))),
+                                      'planned':sum(c['phase']==phase for c in manifest)} for phase in phases}
 for name in ['SUCCESS.json','FAILED.json','E0_PASS.json','decision.json','budget.json']:
     value=read(name)
     if value: result[name]={k:v for k,v in value.items() if k!='traceback'}

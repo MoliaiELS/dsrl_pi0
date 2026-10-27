@@ -9,6 +9,13 @@
 - 默认仅评估冻结 pi0_libero 与已有三个 500000-update DSRL 控制器。执行顺序：E0 → E1 dev 100 → aux 30 → E2 global/校准/fixed/oracle 共60 → 统一锁定 → E1 confirmation 800。禁止用旧工具40步切回原文或原goal提前done代替新评估。
 - 上限：策略执行408800步；含构造/重放/技术重试450000物理步；累计分配GPU24小时、至多一个并发GPU作业。保留集不读取。确认集前锁定任务、提示、种子、校准和完整case manifest。
 - SSH已连通；初次doctor仅因最新提交尚无远端worktree退出，未发现依赖安装证据。本轮尚未提交GPU实验，正在实现完整回合evaluator、预算/断点续跑、统计与Slurm门禁。
+- 环境doctor已完整通过：Python3.11.11、pip check、项目依赖pin及全部目标导入路径均正常，无重新安装。代码固定版本第一版 `44b696ee40b5712fdd4b294f701a6c1b4e9b3be7`；本地9项科学语义测试通过。
+- **E0 18582 COMPLETED/0，5:22，4090node1**：20分钟Slurm短测（原计算节点排队后调整到node1）；10×40=400策略步，重放80步，真值witness2步，合计482物理步。双目标四种truth组合、同obs不同token、空文本、原动作流水线parity、原done后可继续、精确physics/proprio/双图像重放、三个controller全状态和VLA权重/输出冻结均通过。RSS峰值20252.9MiB、显存峰值9213MiB。仅工程证据，不是E1/E2科学结果。
+- 最终执行版 **`008a0a2f9789b14e2cc732a15e23ad9432a1aa79`**：补齐跨作业共享预算（含18582及后续技术成本）、Slurm累计时长校准、直接调用正式rollout的400步mock与报告全链路测试、单GPU互斥、固定规则视频重放与4张统计图；10项CPU测试全部通过。新增 `tools/remote.3090.json` 仅改变GPU资源申请，不改科学参数。
+- 最终版E0 **18583 已提交**到3090池；待其同commit/hash核验通过才提交完整first_batch。协议原文件SHA保持 `e6d1144e65192a431132d0f0ac62a7383ea04358a818bf360d280907c86ed024`；规范化输入SHA `beaadb11eb23586ec992f959ef2043015a2f75c3391f2b9114c0920a459c800b`，两者含义分开记录。
+- **18583 SUCCESS / E0_PASS**：3090node2完成最终版10个40步分支及重放/witness，10项CPU检查也在远端通过。11条提示全部无截断，最长30/48 token，空文本2token。官方任务按名称解析为E1=57、T1=8、T2=4。
+- 登录节点轻量自动衔接器 `runs/research-autosubmit-18583.py`（本地备份 `tmp/language-stage-20261027/autosubmit.py`）核对同commit/协议/E0_SUCCESS，并在登录节点补核两个E0作业的sacct分配时间后，**自动提交完整first_batch 18584，已在3090node2运行**。工作流记录 `runs/research-workflow-18583/submitted.json`；正式结果目录 `runs/job-18584/`。当前仅开始执行，尚无新科学结论。
+- 首批主结果计划990完整回合（100dev+30aux+60stage-dev+800confirmation），E0单独记录。最终评估代码固定 `008a0a2f9789b14e2cc732a15e23ad9432a1aa79`；之后文档提交不改变运行目录。查询：`powershell -ExecutionPolicy Bypass -File tools/remote.ps1 status 18584`。
 
 ## 实验报告与可视化归档（2026-10-21；已完成）
 
