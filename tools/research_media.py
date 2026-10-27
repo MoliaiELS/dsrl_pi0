@@ -135,7 +135,43 @@ def figures(output,summary,paired):
                                 ['First stable grasp is A','Official goal A ever true','Official goal B ever true']):
             for j,policy in enumerate(['base','dsrl_s0']):
                 rows=[next((r for r in aux if r['policy']==policy and r['prompt']==prompt),None) for prompt in prompts]
-                values=[r[key]/r['valid'] if key.startswith('first_grasp') and r and r['valid'] else r[key] if r else np.nan for r in rows]
+                values=[np.nan if not r or not r['valid'] else r[key]/r['valid'] if key.startswith('first_grasp') else r[key] for r in rows]
                 ax.bar(np.arange(3)+(j-.5)*.36,values,width=.36,label=policy)
             ax.set_xticks(range(3),prompts,rotation=20);ax.set(ylim=(0,1.08),title=title,ylabel='Behavior frequency (n<=5)');ax.legend()
         fig.savefig(folder/'e1_auxiliary_behavior.png',dpi=180);plt.close(fig)
+
+
+def resource_figure(output):
+    import json
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    output=Path(output)
+    path=output/'resources.jsonl'
+    if not path.exists():return
+    rows=[json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+    if not rows:return
+    start=rows[0]['time_unix']
+    minutes=[(row['time_unix']-start)/60 for row in rows]
+    rss=[row['process_max_rss_mib']/1024 for row in rows]
+    resident=[float(row['cpu_percent_rss_kib'].split()[1])/1024**2 if len(row.get('cpu_percent_rss_kib','').split())>=2 else np.nan for row in rows]
+    gpu=[];util=[]
+    for row in rows:
+        devices=row.get('gpus',[])
+        gpu.append(max((float(d['process_memory_mib'])/1024 for d in devices if d['process_memory_mib'].replace('.','',1).isdigit()),default=np.nan))
+        util.append(float(devices[0]['util_totalmem_power_temperature'].split(',')[0]) if devices else np.nan)
+    fig,axes=plt.subplots(2,1,figsize=(12,6),sharex=True,layout='constrained')
+    axes[0].plot(minutes,rss,label='Process peak RSS (GiB)');axes[0].plot(minutes,gpu,label='Process GPU memory (GiB)')
+    axes[0].plot(minutes,resident,label='Process resident RSS (GiB)',linestyle='--')
+    axes[0].set(ylabel='GiB',title='Recorded resources (card utilization includes the whole device)');axes[0].legend()
+    axes[1].plot(minutes,util,color='#429687');axes[1].set(ylabel='GPU utilization (%)',xlabel='Minutes since process monitor start',ylim=(0,105))
+    seen=set()
+    metrics=output/'metrics.jsonl'
+    if metrics.exists():
+        for line in metrics.read_text().splitlines():
+            row=json.loads(line);phase=row.get('phase')
+            if phase in ['e1_dev','e1_aux','e2_dev','e1_confirm','rendering_recorded_actions'] and phase not in seen:
+                seen.add(phase);x=(row['time_unix']-start)/60
+                for ax in axes:ax.axvline(x,color='gray',linestyle=':',alpha=.5)
+                axes[1].text(x,100,phase,rotation=90,va='top',ha='right',fontsize=8)
+    folder=output/'figures';folder.mkdir(exist_ok=True);fig.savefig(folder/'resources.png',dpi=180);plt.close(fig)

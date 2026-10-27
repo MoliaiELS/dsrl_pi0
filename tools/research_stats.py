@@ -157,8 +157,9 @@ def generate(output,p,execution_status=None):
     paired['e2_macro_oracle_contrasts']=macro
     atomic(output/'paired_cluster_statistics.json',paired)
     if len(paired['e1_confirm']['complete_clusters'])>=32:
-        from tools.research_media import figures
+        from tools.research_media import figures,resource_figure
         figures(output,summary,paired)
+        resource_figure(output)
     usable=interfaces.get('base',{})
     enough=len(paired['e1_confirm']['complete_clusters'])>=32
     label='INCONCLUSIVE';next_intervention='collect missing planned evidence before choosing a training intervention'
@@ -229,7 +230,21 @@ def generate(output,p,execution_status=None):
               '![阶段与完整目标](figures/e2_stages.png)',
               '```json',json.dumps(stage,ensure_ascii=False,indent=2),'```','', '## 成本与下一步','',
               '物理步含短测、重放与重试；budget.json区分策略/重放/构造/不确定上界。resources.jsonl记录RSS/显存/GPU利用率。',
+              '![资源与阶段时间线](figures/resources.png)',
               f'首要下一步：{next_intervention}。本批没有SFT、PPO、Instruction RL或Joint RL训练。']
+    contrast_lines=['','| registered contrast | effect | 95% cluster interval | clusters | degenerate |',
+                    '| --- | --- | --- | --- | --- |']
+    for name,value in paired['e1_confirm']['contrasts'].items():
+        contrast_lines.append(f"| {name} | {value['estimate']} | {value['ci95']} | {value['clusters']} | {value['degenerate']} |")
+    contrast_lines += ['','逐目标、逐controller、L与辅助文本属于完整展示的探索性比较；区间为逐项95%区间，不宣称同时覆盖。',
+                      '', '| policy | L | L interval | both A/B first grasp correct | B→A first grasp |',
+                      '| --- | --- | --- | --- | --- |']
+    for policy,value in interfaces.items():
+        l_ci=value['complete_cluster_statistics'].get('L',{}).get('ci95')
+        contrast_lines.append(f"| {policy} | {value['L']} | {l_ci} | {value['pair_both_correct']} | {value['wrong_A_under_B']} |")
+    index=lines.index('## 阶段诊断');lines[index:index]=contrast_lines+['']
+    if (output/'optimizer_restore_audit.json').exists():
+        lines+=['','SAC恢复会构造并载入含优化器状态的TrainState。原trainable_manifest.optimizer_created字段命名不严谨；本轮实际核验的是优化器更新为0、完整恢复状态不变。更正说明见optimizer_restore_audit.json，原始文件保留。']
     # Exact stage prompts and schedule, alongside the corresponding diagnostic text.
     stage_lines=['','| task | condition/phase | exact prompt |','| --- | --- | --- |']
     for task in p['e2']['tasks']:

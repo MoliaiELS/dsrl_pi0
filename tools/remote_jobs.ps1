@@ -53,6 +53,8 @@ keys=['phase','gradient_updates','wall_seconds','env_steps','chunk_transitions',
       'research/current_case','research/current_steps','research/physical_steps','research/cases_completed']
 result={'directory':str(p),'run':read('run.json'),
         'metrics':{k:latest[k] for k in keys if k in latest}}
+if result['run'].get('mode','').startswith('research'):
+    result['metrics']={k:v for k,v in result['metrics'].items() if not k.startswith('probe/')}
 manifest=read('case_manifest.json')
 if isinstance(manifest,list):
     result['current_case']=next((c for c in manifest if c['id']==latest.get('research/current_case')),None)
@@ -65,7 +67,7 @@ for name in ['SUCCESS.json','FAILED.json','E0_PASS.json','decision.json','budget
         value={k:value[k] for k in ['passed','short_branches','policy_steps','eval_updates','replay_insertions'] if k in value}
     if value: result[name]={k:v for k,v in value.items() if k!='traceback'}
 metrics=p/'metrics.jsonl'
-if metrics.exists():
+if metrics.exists() and not result['run'].get('mode','').startswith('research'):
     events=[json.loads(s) for s in metrics.read_text().splitlines() if s.strip()]
     episodes=[e for e in events if 'evaluation/episode_success' in e]
     result['evaluation_completed']=len(episodes)
