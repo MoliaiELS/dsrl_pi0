@@ -19,6 +19,12 @@
 - 18584启动与持续监控：前7回合完整400步/20query，含2个B全程文本检查，共同状态误差0；随后前52回合由独立 `tools/research_audit.py` 对动作/噪声、每步事件、首次抓取、两目标ever/first/final、稳定释放与原done处理重算，**52/52通过**，已有6960个native_done=True之后继续执行的控制步。审计新增环境步0、VLA前向0；无技术重试。证据 `startup_check.json`、`trajectory_audit.json`。
 - 分析与展示后处理单独完善，不改变运行中的评估：主统计使用完整reset cluster；另给L、pair_both_correct、逐目标指标及每controller的B→A偏置区间（探索性），增加辅助文本行为图和每配置固定前2reset视频索引；分析脚本另记版本/hash。
 - 元数据澄清：SAC恢复构造并载入含原优化器状态的TrainState；本轮**优化器step为0，完整保存状态前后一致**。原 `trainable_manifest.optimizer_created=false` 字段命名不严谨，独立 `optimizer_restore_audit.json` 保留原文件SHA并明确更正解释，不覆写原始文件。
+- **E1 dev 100/100＋aux 30/30 已完成，技术错误/重试0；E2 dev已开始**。独立轨迹审计先后100/100、131/131通过，累计15879个native_done=True后继续执行的控制步；均为保存数据重算，新增仿真步/VLA前向0。确认集仍未执行，待E2 global→校准→fixed/oracle全部完成并统一锁定。
+- 自动CPU后处理已在登录节点启动等待器 **PID1802324**，固定分析版本 **`447446a4c436cc922e87375110e0e0aae5115638`**，与评估版本008a分开。原始报告/统计会保留副本，再做全部轨迹与权重SHA闭环、完整cluster统计、图表/视频索引、HTML与证据ZIP；不占新GPU。记录 `runs/research-workflow-18583/postprocess_launch.json`，日志 `postprocess.log`。
+- **E2 dev 60/60已完成，无技术错误/重试**。T1/T2 × global/fixed/oracle 六组各10条，完整goal成功均0/10，首阶段稳定完成均0/10。global校准没有有效事件，严格使用预设fallback T1=200、T2=300；没有搜索时间或替换任务。只能说明本次零样本接口下未观察到阶段调度收益，不能据此否定适配后阶段接口的价值。
+- 用CPU、无渲染的独立工程witness（技术seed9002/9003）核验两个任务的官方Open/Close/In/完整goal，合法抽屉范围[-0.16,0.01]内开/关状态和对象在内组合全部正确，环境步0、VLA调用0、GPU0；不属于策略评估回合。证据 `e2_predicate_witness.json` 及 `engineering/e2_predicate_witness.py`。
+- **190个开发/辅助回合后冻结检查通过，完整协议锁定并启动E1确认**。resolved SHA：`715066dcfd289a2a201db811976981fe523713a757bc19c2063fdd99a1b4c560`；case manifest SHA：`f49e04dca72b6799b8b2f5f6cae1a96b883bafc43820eac88fa528c3550f949f`。锁先于首个确认case发布，190份开发case JSON的SHA已保留；证据 `development_boundary_check.json`、`confirmation_lock.json`、`frozen_check.json`。跨开发/首批确认的194条保存轨迹审计全部通过。
+- 确认目前15/800，仍无错误；尚未统计确认结果。预定开发seed4000的四段录像/帧图显示T1会拾碗并移向盘子，T2伸向碗而非指定黄油，提示对象/目的地与输入接口也可能混杂，不能仅解释为切换时点问题。这是固定案例的质性观察，不外推全体；素材 `figures/E2_4000_contact_sheet.png`，没有新增环境交互。
 
 ## 实验报告与可视化归档（2026-10-21；已完成）
 
