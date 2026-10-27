@@ -25,6 +25,7 @@
 - 用CPU、无渲染的独立工程witness（技术seed9002/9003）核验两个任务的官方Open/Close/In/完整goal，合法抽屉范围[-0.16,0.01]内开/关状态和对象在内组合全部正确，环境步0、VLA调用0、GPU0；不属于策略评估回合。证据 `e2_predicate_witness.json` 及 `engineering/e2_predicate_witness.py`。
 - **190个开发/辅助回合后冻结检查通过，完整协议锁定并启动E1确认**。resolved SHA：`715066dcfd289a2a201db811976981fe523713a757bc19c2063fdd99a1b4c560`；case manifest SHA：`f49e04dca72b6799b8b2f5f6cae1a96b883bafc43820eac88fa528c3550f949f`。锁先于首个确认case发布，190份开发case JSON的SHA已保留；证据 `development_boundary_check.json`、`confirmation_lock.json`、`frozen_check.json`。跨开发/首批确认的194条保存轨迹审计全部通过。
 - 确认目前15/800，仍无错误；尚未统计确认结果。预定开发seed4000的四段录像/帧图显示T1会拾碗并移向盘子，T2伸向碗而非指定黄油，提示对象/目的地与输入接口也可能混杂，不能仅解释为切换时点问题。这是固定案例的质性观察，不外推全体；素材 `figures/E2_4000_contact_sheet.png`，没有新增环境交互。
+- 持续监控更新：确认**102/800**，累计主回合292；**292/292保存轨迹独立审计通过**，动作/噪声有限、文本日程、首抓与原目标计分一致，技术错误/重试0。含前置E0累计约129804物理步、2.228 GPU小时。尚未统计确认成功率；完整矩阵和cluster齐备后统一分析。
 
 ## 实验报告与可视化归档（2026-10-21；已完成）
 
