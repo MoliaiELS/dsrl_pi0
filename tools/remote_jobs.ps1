@@ -61,7 +61,9 @@ if isinstance(manifest,list):
     phases=['e0'] if result['run'].get('mode')=='research-smoke' else sorted({c['phase'] for c in manifest if c['phase']!='e0'})
     result['research_progress']={phase:{'completed':len(list((p/'cases').glob(phase+'__*.json'))),
                                       'planned':sum(c['phase']==phase for c in manifest)} for phase in phases}
-for name in ['SUCCESS.json','FAILED.json','E0_PASS.json','decision.json','budget.json']:
+for name in ['SUCCESS.json','FAILED.json','E0_PASS.json','decision.json','budget.json',
+             'trajectory_audit.json','closure_check.json','POSTPROCESS_COMPLETE.json',
+             'AUTO_WORKFLOW.json','EXTRA_POSTPROCESS_COMPLETE.json']:
     value=read(name)
     if name=='E0_PASS.json' and value:
         value={k:value[k] for k in ['passed','short_branches','policy_steps','eval_updates','replay_insertions'] if k in value}
