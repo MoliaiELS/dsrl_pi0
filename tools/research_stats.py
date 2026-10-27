@@ -127,13 +127,17 @@ def generate(output,p,execution_status=None):
             macro[ref]=dict(estimate=float(np.mean([v[0] for v in values])),ci95=np.quantile(np.mean([v[1] for v in values],axis=0),[.025,.975]).tolist())
     paired['e2_macro_oracle_contrasts']=macro
     atomic(output/'paired_cluster_statistics.json',paired)
+    if len(paired['e1_confirm']['complete_clusters'])>=32:
+        from tools.research_media import figures
+        figures(output,summary,paired)
     usable=interfaces.get('base',{})
     enough=len(paired['e1_confirm']['complete_clusters'])>=32
     label='INCONCLUSIVE';next_intervention='collect missing planned evidence before choosing a training intervention'
     if enough:
         correct=usable['correct_first'];success=usable['success']
+        next_intervention='goal interface repair SFT' if any(correct[g]<.6 for g in ['A','B']) else 'action expert execution repair'
         if all(correct[g]>=.6 and success[g]>=.2 for g in ['A','B']) and usable['pair_both_correct']>=.5 and usable['L']>=.2:
-            label='LANGUAGE_INTERFACE_USABLE';next_intervention='stage estimation only if localized E2 evidence supports it; otherwise action execution diagnosis'
+            label='LANGUAGE_INTERFACE_USABLE';next_intervention='action expert execution repair'
         if any(correct[g]>=.6 and success[g]<.2 for g in ['A','B']):
             label='EXECUTION_BOTTLENECK';next_intervention='action expert execution repair'
         affected=[k for k,v in interfaces.items() if k.startswith('dsrl') and v['wrong_A_under_B']-usable['wrong_A_under_B']>=.2]
@@ -163,17 +167,43 @@ def generate(output,p,execution_status=None):
         '',f"计划 {len(required)}，完成 {decision['completed_cases']}，有效 {decision['valid_cases']}；确认集完整 reset clusters {len(paired['e1_confirm']['complete_clusters'])}/40。",
         '', 'E1 固定奶酪任务物理场景，400步；A 奶酪入托盘，B 黄油入同一托盘；所有20次查询保持指定文本。',
         'Base、bounded random 与三份固定500000-update DSRL控制器共享reset和sampling key。首次稳定抓取与官方目标曾经成功分开报告。',
+        '', '| E1 text | requested goal | exact prompt |','| --- | --- | --- |']
+    for prompt in p['e1']['goals']+p['e1']['auxiliary_prompts']:
+        lines.append(f"| {prompt['id']} | {prompt.get('requested_goal_id',prompt['id'] if prompt['id'] in ['A','B'] else None)} | `{prompt['text']}` |")
+    lines += [
+        '', '![两条独立指标轴](figures/e1_two_axes.png)', '![首次稳定抓取混淆矩阵](figures/e1_confusion.png)',
         '', '| split/task/policy/prompt | valid/planned | correct first grasp | active goal ever |', '| --- | --- | --- | --- |']
     for row in summary:
         lines.append(f"| {row['phase']}/{row['task']}/{row['policy']}/{row['prompt']} | {row['valid']}/{row['planned']} | {row['correct_first_grasp']} | {row['active_goal_ever_success']} |")
     lines += ['', '## 配对证据','', '统计单位是reset，保留文本/采样/控制器分支配对。10000次cluster bootstrap，seed99021；退化区间不代表确定性。',
+              '![配对效应区间](figures/e1_paired_effects.png)',
               '效应量、95%区间和缺失值最坏/最好界见 paired_cluster_statistics.json。辅助空文本/无关文本没有requested goal，不计算任务成功率。',
               '', '## 阶段诊断','', 'T1：打开上抽屉再放入碗；T2：前方黄油入初始打开的上抽屉再关闭。',
               'global完整目标、fixed按开发global首阶段完成时间中位数取整并限制100–300步、oracle按当前复合谓词连续3步并允许回退，仅查询边界更新。',
               'Oracle为真值信息上界，不是可部署阶段估计器。全部阶段文本、实际切换和失败标签已逐步保存。',
+              '![阶段与完整目标](figures/e2_stages.png)',
               '```json',json.dumps(stage,ensure_ascii=False,indent=2),'```','', '## 成本与下一步','',
               '物理步含短测、重放与重试；budget.json区分策略/重放/构造/不确定上界。resources.jsonl记录RSS/显存/GPU利用率。',
               f'首要下一步：{next_intervention}。本批没有SFT、PPO、Instruction RL或Joint RL训练。']
+    # Exact stage prompts and schedule, alongside the corresponding diagnostic text.
+    stage_lines=['','| task | condition/phase | exact prompt |','| --- | --- | --- |']
+    for task in p['e2']['tasks']:
+        stage_lines.append(f"| {task['id']} | global | `{p['e2']['prompt_global_template'].format(goal=task['global_goal'])}` |")
+        for i in [0,1]:
+            stage_lines.append(f"| {task['id']} | stage {i} | `{p['e2']['prompt_stage_template'].format(goal=task['global_goal'],stage=task['stage_'+str(i)])}` |")
+    if (output/'calibration.json').exists():stage_lines+=['', '`calibration`: '+json.dumps(read(output/'calibration.json')['switch_steps'])]
+    index=lines.index('## 阶段诊断')+1
+    lines[index:index]=stage_lines
+    selection_path=output/'media/selection.json'
+    if selection_path.exists():
+        selection=read(selection_path)
+        for task,anchor in [('E1','## 配对证据'),('T1','## 成本与下一步'),('T2','## 成本与下一步')]:
+            media_lines=['',f'{task} 预定规则选择的保存动作重放（非重新采样）：']
+            for row in selection:
+                if row['task']==task:
+                    media_lines.append(f"- {row['comparison']} / {row.get('goal','')} / {row['stratum']}: "+'；'.join(f'[{c}](media/{c}.mp4)' for c in row['cases']))
+            index=lines.index(anchor)
+            lines[index:index]=media_lines+['']
     if (output/'budget.json').exists(): lines+=['','```json',json.dumps(read(output/'budget.json'),ensure_ascii=False,indent=2),'```']
     (output/'REPORT.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')
     return decision

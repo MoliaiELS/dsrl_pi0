@@ -41,16 +41,35 @@ class ResearchTests(unittest.TestCase):
         self.assertEqual(t.first_complete,3)
 
     def test_400_step_mock_ignores_every_native_done_and_keeps_B(self):
+        import numpy as np
+        from types import SimpleNamespace
+        from tools.research_runner import rollout
         c=next(c for c in case_plan(self.p) if c['phase']=='e1_dev' and c['prompt_id']=='B')
-        calls=[];executed=0
-        for step in range(0,c['horizon'],20):
-            prompt,_=prompt_for(self.p,c,StageTracker(),step,{})
-            calls.append(prompt)
-            for _ in range(20):
-                native_done=True
-                executed+=1
-        self.assertEqual((executed,len(calls)),(400,20))
-        self.assertTrue(all(x==self.p['e1']['goals'][1]['text'] for x in calls))
+        c=dict(c,reset_seed=1)  # No rendering in this mocked technical check.
+        class Env:
+            def __init__(self): self.steps=0
+            def step(self,action):
+                self.steps+=1
+                return {},0,True,{}
+            def get_sim_state(self):return np.asarray([self.steps],float)
+            def close(self):pass
+        env=Env();calls=[]
+        def infer(obs,text,noise):
+            calls.append(text);return np.zeros((50,7))
+        def event(env,task):
+            return dict(goals=dict(A=env.steps>0,B=False),grasp=dict(cream_cheese_1=False,butter_1=False),
+                contact=dict(cream_cheese_1=False,butter_1=False),positions=dict(cream_cheese_1=[0,0,0],butter_1=[0,0,0]),
+                official_success=env.steps>0)
+        with tempfile.TemporaryDirectory() as d:
+            b=SimpleNamespace(p=self.p,output=Path(d),logger=SimpleNamespace(log=lambda *a:None),
+                reset=lambda *a:(env,{}),common=lambda *a:dict(id='mock'),events=event,infer=infer,
+                audit_prompt=lambda text:dict(tokens=[],mask=[]),noise=lambda *a:(np.zeros((1,50,32)),np.array([0,0])))
+            result=rollout(b,c,Budget(Path(d)/'budget.json'),{},0)
+            self.assertEqual((env.steps,result['executed_env_steps'],result['vla_queries']),(400,400,20))
+            self.assertEqual(result['status'],'POLICY_FAILURE')
+            self.assertTrue(result['goal_ever']['A'])
+            self.assertFalse(result['active_goal_ever_success'])
+            self.assertTrue(all(x==self.p['e1']['goals'][1]['text'] for x in calls))
         c['prompt_id']='empty'
         self.assertEqual(prompt_for(self.p,c,StageTracker(),0,{})[0],'')
 
@@ -92,6 +111,28 @@ class ResearchTests(unittest.TestCase):
         self.assertTrue(effect['degenerate'])
         self.assertLess(effect['missing_sensitivity'][0],1)
         self.assertEqual(interval([])['estimate'],None)
+
+    def test_full_report_includes_policy_failure_and_complete_cluster_denominators(self):
+        from tools.research_stats import generate
+        plan=case_plan(self.p)
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d)
+            atomic(root/'case_manifest.json',plan)
+            atomic(root/'run_manifest.json',dict(code_commit='mock'))
+            atomic(root/'E0_PASS.json',dict(passed=True))
+            for c in plan:
+                if c['phase']=='e0':continue
+                requested=c['requested_goal_id']
+                goals=dict(A=requested=='A',B=requested=='B') if c['task']=='E1' else {'global':False}
+                r=dict(case=c,status='POLICY_FAILURE',artifact_hashes={},first_grasp_class=requested or 'NONE',
+                    correct_first_grasp=bool(requested),active_goal_ever_success=False if requested or c['task']!='E1' else None,
+                    goal_ever=goals,first_stage_completion=100, failure_diagnostics=dict(timeout=True))
+                atomic(root/'cases'/(c['id']+'.json'),r)
+            decision=generate(root,self.p)
+            self.assertEqual(decision['execution_status'],'COMPLETE')
+            self.assertEqual(decision['scientific_decision'],'EXECUTION_BOTTLENECK')
+            self.assertEqual(decision['completed_cases'],990)
+            self.assertEqual(len(read(root/'paired_cluster_statistics.json')['e1_confirm']['complete_clusters']),40)
 
 
 if __name__=='__main__':unittest.main()

@@ -192,6 +192,7 @@ def run_case(b,c,budget,calibration):
 
 
 def e0_checks(b,cases,budget):
+    subprocess.run([__import__('sys').executable,'-m','unittest','tools.test_research','-q'],check=True)
     # Same-observation language transformation and original action pipeline parity.
     env,obs=b.reset('E1',9000)
     try:
@@ -295,6 +296,12 @@ def main():
         return
     assert args.output
     output=Path(args.output).resolve();output.mkdir(parents=True,exist_ok=True)
+    # A shared advisory lock protects the one-GPU protocol even for direct CLI launches.
+    import fcntl
+    guard_path=Path(os.environ['DSRL_DATA_ROOT'])/'research'/p['protocol_id']/'allocation.lock'
+    guard_path.parent.mkdir(parents=True,exist_ok=True)
+    allocation_guard=guard_path.open('a')
+    fcntl.flock(allocation_guard,fcntl.LOCK_EX|fcntl.LOCK_NB)
     if not args.resume: assert not (output/'run_manifest.json').exists(), 'Use --resume for an existing run'
     from tools.run_logger import RunLogger
     from tools.language_goal_probe import Backend
@@ -308,7 +315,23 @@ def main():
     lock(output/'input_protocol.json',p)
     (output/'protocol.sha256').write_text(sha(p)+'\n')
     logger=RunLogger(output)
-    budget=Budget(output/'budget.json')
+    shared=Path(os.environ['DSRL_DATA_ROOT'])/'research'/p['protocol_id']/'budget.json'
+    shared.parent.mkdir(parents=True,exist_ok=True)
+    # Bootstrap early engineering allocations made before the shared ledger was introduced.
+    if not shared.exists():
+        old=[]
+        for runfile in (Path(os.environ['DSRL_DATA_ROOT'])/'runs').glob('job-*/run.json'):
+            previous=read(runfile)
+            if previous.get('protocol_sha256')==sha(p) and (runfile.parent/'budget.json').exists():
+                old.append(read(runfile.parent/'budget.json'))
+        if old:
+            merged=copy.deepcopy(old[0])
+            for item in old[1:]:
+                assert not set(s['job_id'] for s in merged['sessions']).intersection(s['job_id'] for s in item['sessions']), 'Overlapping legacy budget; reconcile explicitly'
+                for k in ['recorded_physical_steps','uncertain_steps','policy_steps','replay_steps','construction_steps']:merged[k]+=item[k]
+                merged['sessions']+=item['sessions']
+            atomic(shared,merged)
+    budget=Budget(output/'budget.json',shared_path=shared)
     try:
         if not (output/'seed_collision_audit.json').exists(): scan_seeds(p,Path(os.environ['DSRL_DATA_ROOT']),output)
         assert read(output/'seed_collision_audit.json')['passed']
@@ -318,22 +341,23 @@ def main():
             assert gr['commit']==code and gr['protocol_sha256']==sha(p) and read(gate/'E0_PASS.json')['passed']
             assert read(gate/'SUCCESS.json')['passed']
             atomic(output/'gate_check.json',dict(passed=True,job=args.gate_job,commit=code,protocol_sha256=sha(p)))
-            # Include the prerequisite allocation and all E0 physical steps in total cost.
+            # Shared budget already includes prerequisite and failed engineering allocations.
             gb=read(gate/'budget.json')
             lock(output/'prerequisite_budget.json',gb)
-            if not budget.state.get('prerequisite_included'):
-                for k in ['recorded_physical_steps','uncertain_steps','policy_steps','replay_steps','construction_steps']:
-                    budget.state[k]+=gb[k]
-                budget.state['sessions'][:-1]=gb['sessions']+budget.state['sessions'][:-1]
-                budget.state['prerequisite_included']=True
-                budget.flush()
+            assert {s['job_id'] for s in gb['sessions']}.issubset({s['job_id'] for s in budget.state['sessions']})
         b=Backend(p,output,logger)
+        if args.gate_job and not args.phase:
+            smoke_resolved=read(gate/'resolved_protocol.json')
+            for field in ['model_hashes','controller_paths','prompt_token_audit','sampling_settings','task_name_to_id','bash_setup_sha256']:
+                assert b.resolved[field]==smoke_resolved[field], f'E0 gate mismatch: {field}'
+            assert file_sha(output/'checkpoint_manifest.json')==file_sha(gate/'checkpoint_manifest.json')
         atomic(output/'software_manifest.json',dict(code_commit=code,submodules=subprocess.check_output(
             ['git','submodule','status','--recursive'],text=True),dependencies={d.metadata['Name']:d.version for d in importlib.metadata.distributions()}))
         resolved=dict(protocol=p,code_commit=code,**b.resolved)
         if args.phase:
             e0_checks(b,[c for c in plan if c['phase']=='e0'],budget)
             lock(output/'resolved_protocol.json',resolved)
+            (output/'protocol.sha256').write_text(sha(resolved)+'\n')
         else:
             if args.gate_job:
                 lock(output/'E0_PASS.json',read(gate/'E0_PASS.json'))
@@ -351,10 +375,13 @@ def main():
                 checkpoints_sha256=file_sha(output/'checkpoint_manifest.json'),prompt_audit_sha256=file_sha(output/'prompt_audit.json'),
                 seed_audit_sha256=file_sha(output/'seed_collision_audit.json'))
             lock(output/'resolved_protocol.json',resolved)
+            (output/'protocol.sha256').write_text(sha(resolved)+'\n')
             lock(output/'confirmation_lock.json',dict(resolved_protocol_sha256=sha(resolved),
                 manifest_sha256=sha(plan),code_commit=code))
             for c in [c for c in plan if c['phase']=='e1_confirm']: run_case(b,c,budget,calibration)
             b.verify_frozen()
+            from tools.research_media import replay_representatives
+            replay_representatives(b,[r for c in plan if (r:=completed(output,c))],budget)
             from tools.research_stats import generate
             generate(output,p)
         budget.flush()

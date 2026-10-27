@@ -130,15 +130,30 @@ class BudgetExceeded(RuntimeError):
 
 class Budget:
     """Reserve before stepping; interrupted reservations count as uncertain upper bounds."""
-    def __init__(self, path, cap=450000, hours=24):
+    def __init__(self, path, cap=450000, hours=24, shared_path=None):
         self.path, self.cap, self.hours = Path(path), cap, hours
-        self.state = read(path) if self.path.exists() else dict(recorded_physical_steps=0, uncertain_steps=0,
+        self.shared_path=Path(shared_path) if shared_path else None
+        source=self.shared_path if self.shared_path and self.shared_path.exists() else self.path
+        self.state = read(source) if source.exists() else dict(recorded_physical_steps=0, uncertain_steps=0,
             policy_steps=0, replay_steps=0, construction_steps=0, reservations={}, sessions=[])
         for value in self.state['reservations'].values():
             self.state['uncertain_steps'] += value['steps']
         self.state['reservations'] = {}
+        # Reconcile interrupted allocations with Slurm accounting, including startup overhead.
+        import os
+        import subprocess
+        for s in self.state['sessions']:
+            if s.get('job_id') and os.name!='nt':
+                try:
+                    rows=subprocess.check_output(['sacct','-n','-P','-j',s['job_id'],'--format=JobIDRaw,ElapsedRaw'],text=True,timeout=10)
+                    for row in rows.splitlines():
+                        fields=row.split('|')
+                        if fields[0]==s['job_id']:s['seconds']=max(s['seconds'],float(fields[1]))
+                except (OSError,ValueError,subprocess.SubprocessError):pass
         self.started = time.time()
-        self.session = dict(job_id=__import__('os').environ.get('SLURM_JOB_ID'), started=self.started, seconds=0)
+        if os.environ.get('SLURM_JOB_START_TIME','').isdigit():
+            self.started=min(self.started,float(os.environ['SLURM_JOB_START_TIME']))
+        self.session = dict(job_id=os.environ.get('SLURM_JOB_ID'), started=self.started, seconds=0)
         self.state['sessions'].append(self.session)
         self.flush()
 
@@ -147,11 +162,12 @@ class Budget:
         self.state['physical_steps_upper_bound'] = self.state['recorded_physical_steps'] + self.state['uncertain_steps']
         self.state['allocated_gpu_hours_lower_bound'] = sum(s['seconds'] for s in self.state['sessions']) / 3600
         atomic(self.path, self.state)
+        if self.shared_path:atomic(self.shared_path,self.state)
 
     def reserve(self, key, steps, kind):
         self.flush()
         upper = self.state['physical_steps_upper_bound'] + sum(v['steps'] for v in self.state['reservations'].values())
-        if upper + steps > self.cap or sum(s['seconds'] for s in self.state['sessions']) >= self.hours * 3600:
+        if upper + steps > self.cap or sum(s['seconds'] for s in self.state['sessions']) >= self.hours * 3600 - 120:
             raise BudgetExceeded('First-batch physical/GPU budget exhausted')
         assert key not in self.state['reservations']
         self.state['reservations'][key] = dict(steps=steps, kind=kind)

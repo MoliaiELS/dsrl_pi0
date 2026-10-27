@@ -42,7 +42,7 @@ class Backend:
         path_b = self.paths['E1'].with_name('LIVING_ROOM_SCENE3_pick_up_the_butter_and_put_it_in_the_tray.bddl')
         parsed_b = robosuite_parse_problem(str(path_b))
         # Only labels / goal / obj_of_interest may differ. Always instantiate A.
-        physical = ['problem_name','domain_name','regions','fixtures','objects','initial_state']
+        physical = ['problem_name','domain_name','regions','fixtures','objects','initial_state','scene_properties']
         physical = [k for k in physical if k in parsed_a]
         assert {'regions','objects','fixtures'}.issubset(physical), parsed_a.keys()
         assert all(parsed_a[k] == parsed_b[k] for k in physical), 'A/B official physical scenes differ'
@@ -67,6 +67,7 @@ class Backend:
             self.audit_prompt(text)
         atomic(self.output / 'prompt_audit.json', self.prompt_audit)
         self.actors, self.actor_variants, controllers = {}, {}, {}
+        self.logger.log({'phase':'restoring_three_controllers'},0)
         from flax.training import checkpoints
         from jaxrl2.agents.pixel_sac.pixel_sac_learner import PixelSACLearner
         for spec in p['e1']['policies']:
@@ -99,6 +100,7 @@ class Backend:
                 file_hashes={str(f.relative_to(exact)):file_sha(f) for f in sorted(exact.rglob('*')) if f.is_file()},
                 source_run=read(source/'run.json'), source_config_sha256=file_sha(source/'config.json'))
         atomic(self.output/'checkpoint_manifest.json', controllers)
+        self.logger.log({'phase':'hashing_frozen_weights_and_assets'},0)
         self.controllers_before = self.controller_hashes()
         self.model_before = self.model_fingerprint()
         modelpath = Path(os.environ['DSRL_MODEL_PATH'])
@@ -115,6 +117,7 @@ class Backend:
         atomic(self.output/'trainable_manifest.json',dict(gradient_updates=0,replay_insertions=0,optimizer_created=False,
             controllers_before=self.controllers_before, vla_state_before=self.model_before))
         self.reference = None
+        self.logger.log({'phase':'backend_ready'},0)
 
     def audit_prompt(self, text):
         clean = text.strip().replace('_',' ').replace('\n',' ')
