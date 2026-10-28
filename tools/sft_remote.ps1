@@ -5,13 +5,13 @@ $ErrorActionPreference='Stop'
 if (-not $ConfigPath) { $ConfigPath=Join-Path $PSScriptRoot 'remote.sft.json' }
 if (-not $ExperimentConfig) { $ExperimentConfig='configs/sft_a_v1.json' }
 $machine=Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
-$stage=@{'sft-data'='data';'sft-align'='align';'sft-smoke'='profile';'sft-train'='train';'sft-eval'='evaluate'}[$Command]
+$stage=@{'sft-data'='data';'sft-ref'='reference';'sft-align'='align';'sft-smoke'='profile';'sft-train'='train';'sft-eval'='evaluate'}[$Command]
 if (-not $stage) { throw 'Unknown SFT stage.' }
 $required=if ($stage -eq 'data') {'sft_data.py'} else {'sft_native.py'}
 if (-not (Test-Path -LiteralPath (Join-Path $PSScriptRoot $required))) { throw "SFT stage $stage is not implemented." }
 if (-not $Commit) { $Commit=(git rev-parse HEAD).Trim(); if ($LASTEXITCODE -ne 0) { throw 'Cannot read commit.' } }
 if ($Commit -notmatch '^[a-f0-9]{40}$') { throw 'Commit must be a full SHA.' }
-if ($stage -ne 'data' -and $SmokeJobId -notmatch '^\d+$') { throw 'Provide the successful prerequisite job with -SmokeJobId.' }
+if ($stage -notin @('data','reference') -and $SmokeJobId -notmatch '^\d+$') { throw 'Provide the successful prerequisite job with -SmokeJobId.' }
 if ($DependencyJobId -and $DependencyJobId -notmatch '^\d+$') { throw 'DependencyJobId must be numeric.' }
 & (Join-Path $PSScriptRoot 'remote.ps1') sync -ConfigPath $ConfigPath -Commit $Commit
 if ($LASTEXITCODE -ne 0) { throw 'Code synchronization failed.' }
@@ -21,7 +21,7 @@ $slurm=$machine.Slurm
 $argsList=@('sbatch','--parsable',('--partition='+$slurm.Partition),('--account='+$slurm.Account),('--qos='+$slurm.Qos),('--gres='+$slurm.Gres),('--cpus-per-task='+$slurm.Cpus),('--time='+$machine.SftTimes.$stage),('--job-name=sft-a-'+$stage),('--output='+$machine.DataRoot+'/logs/slurm/%j.log'))
 if ($slurm.Exclude) { $argsList+=('--exclude='+$slurm.Exclude) }
 if ($slurm.NodeList) {
-    if ($slurm.NodeList -match '4090node1' -and $stage -notin @('data','profile')) { throw 'node1 is allowed only for short data/profile debugging.' }
+    if ($slurm.NodeList -match '4090node1' -and $stage -notin @('data','reference','profile')) { throw 'node1 is allowed only for short data/reference/profile debugging.' }
     $argsList+=('--nodelist='+$slurm.NodeList)
 }
 if ($DependencyJobId) { $argsList+=('--dependency=afterok:'+$DependencyJobId) }

@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('doctor', 'install-env', 'sync', 'env', 'smoke', 'eval', 'train', 'probe-smoke', 'probe', 'outcome-smoke', 'outcome', 'research-smoke', 'research', 'status', 'logs','sft-data','sft-align','sft-smoke','sft-train','sft-eval')]
+    [ValidateSet('doctor', 'install-env', 'sync', 'env', 'smoke', 'eval', 'train', 'probe-smoke', 'probe', 'outcome-smoke', 'outcome', 'research-smoke', 'research', 'status', 'logs','sft-data','sft-ref','sft-align','sft-smoke','sft-train','sft-eval')]
     [string]$Command = 'doctor',
     [Parameter(Position=1)][string]$JobId='',
     [string]$ConfigPath = '', [string]$Commit='', [int]$Seed=0,

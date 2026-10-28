@@ -40,6 +40,9 @@ p=Path(os.environ['DSRL_REPO_ROOT'])/'LIBERO/libero/libero'
 PY
 if [[ "$stage" == data ]]; then
   python -u -m tools.sft_data --config "$config" --output "$run_dir" --render
+elif [[ "$stage" == reference ]]; then
+  export JAX_PLATFORMS=cuda
+  python -u -m tools.sft_reference --output "$run_dir/jax_reference"
 else
   export DSRL_SFT_GATE_DIR="$data_root/runs/job-$gate_job"
   python - "$config" "$stage" <<'PY'
@@ -54,4 +57,7 @@ PY
   source "$sft_prefix/bin/activate"
   export PYTHONPATH="$repo:$rlinf_root:$PYTHONPATH"
   python -u -m tools.sft_native --mode "$stage" --config "$config" --output "$run_dir" --gate-dir "$DSRL_SFT_GATE_DIR" --restore "$restore"
+  if [[ "$stage" == profile ]]; then
+    python -u -m tools.sft_native --mode verify --config "$config" --output "$run_dir" --gate-dir "$DSRL_SFT_GATE_DIR"
+  fi
 fi
