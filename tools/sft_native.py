@@ -118,6 +118,7 @@ def align(args,logger):
     model=load_model().eval();rows=[]
     with torch.inference_mode():
         for row in read(references/'manifest.json')['cases']:
+            assert file_sha(references/row['file'])==row['sha256'],'Corrupt original reference'
             with np.load(references/row['file']) as sample:
                 obs=observation(sample);noise=torch.as_tensor(sample['noise'],device='cuda')[None]
                 actual=model.sample_actions(obs,num_steps=10,noise=noise)[0].float().cpu().numpy()
@@ -127,7 +128,8 @@ def align(args,logger):
                     real7_rmse=float(np.sqrt(np.mean(delta[:,:7]**2))),per_dimension_rmse=np.sqrt(np.mean(delta**2,axis=0)).tolist(),
                     torch_internal_max=float(np.abs(actual-again).max())))
             logger.log({'phase':'static_alignment','sft/alignment_cases':len(rows),'sft/alignment_rmse':rows[-1]['rmse']},0)
-    report=dict(cases=rows,passed=all(r['rmse']<=.01 and r['maximum']<=.1 and r['torch_internal_max']<=1e-5 for r in rows),
+    assert len(rows)==120
+    report=dict(cases=rows,passed=all(r['rmse']<=.01 and r['maximum']<=.1 and r['torch_internal_max']<=1e-5 and r['internal_max']<=1e-5 for r in rows),
                 engineering_alarms=dict(rmse=.01,maximum=.1),gradient_updates=0,closed_loop_passed=False)
     atomic(args.output/'static_alignment.json',report)
     assert report['passed'],'Static conversion alignment alarm; inspect per-prompt/dimension errors before training'

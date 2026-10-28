@@ -29,5 +29,6 @@
     "train": "24:00:00",
     "evaluate": "01:00:00",
     "reference": "00:20:00"
-  }
+  },
+  "SftReferenceDir": "/mnt/slurmfs-4090node3/user_data/yguo704/dsrl_pi0/runs/job-18644/jax_reference"
 }

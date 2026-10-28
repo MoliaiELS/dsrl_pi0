@@ -8,6 +8,8 @@ export CUDA_VISIBLE_DEVICES=
 export JAX_PLATFORMS=cpu
 export USE_TF=0
 export HF_HUB_DISABLE_XET=1
+export UV_CACHE_DIR="${DSRL_DATA_ROOT:-/mnt/slurmfs-4090node3/user_data/yguo704/dsrl_pi0}/cache/uv"
+mkdir -p "$UV_CACHE_DIR"
 if [[ ! -d "$rlinf_root/.git" ]]; then
   mkdir -p "$(dirname "$rlinf_root")"
   git -c http.lowSpeedLimit=1024 -c http.lowSpeedTime=30 clone --filter=blob:none https://github.com/RLinf/RLinf.git "$rlinf_root"

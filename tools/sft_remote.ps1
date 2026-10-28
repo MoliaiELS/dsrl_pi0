@@ -25,7 +25,7 @@ if ($slurm.NodeList) {
     $argsList+=('--nodelist='+$slurm.NodeList)
 }
 if ($DependencyJobId) { $argsList+=('--dependency=afterok:'+$DependencyJobId) }
-$argsList+=@(($repo+'/tools/sft_job.sh'),$repo,$machine.CondaRoot,$machine.CondaEnv,$machine.DataRoot,$stage,$ExperimentConfig,$machine.SftEnvironmentPrefix,$machine.RLinfRoot,$SmokeJobId,$RestorePath,$machine.BashSetupPath)
+$argsList+=@(($repo+'/tools/sft_job.sh'),$repo,$machine.CondaRoot,$machine.CondaEnv,$machine.DataRoot,$stage,$ExperimentConfig,$machine.SftEnvironmentPrefix,$machine.RLinfRoot,$SmokeJobId,$RestorePath,$machine.BashSetupPath,$machine.SftReferenceDir)
 $lines=@('set -euo pipefail',('source '+(Q $machine.BashSetupPath)),('cd '+(Q $repo)),('mkdir -p '+(Q ($machine.DataRoot+'/logs/slurm'))),'bash -n tools/sft_job.sh', (($argsList | ForEach-Object {Q $_}) -join ' '))
 $encoded=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes(($lines -join "`n")+"`n"))
 & ssh -o BatchMode=yes -o ConnectTimeout=15 $machine.SshHost "echo $encoded | base64 -d | bash"

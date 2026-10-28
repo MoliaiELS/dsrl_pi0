@@ -13,6 +13,7 @@ source tools/remote-env.sh
 export DSRL_BASH_SETUP="$setup"
 export DSRL_SFT_PREFIX="$sft_prefix"
 export DSRL_RLINF_ROOT="$rlinf_root"
+export DSRL_SFT_REFERENCE_DIR="${12:-}"
 export DSRL_OLD_PYTHON="$conda_root/envs/$conda_env/bin/python"
 export DSRL_MODEL_PATH="$data_root/checkpoints/pi0_libero"
 run_dir="$data_root/runs/job-$SLURM_JOB_ID"
