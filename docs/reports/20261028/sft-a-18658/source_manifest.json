@@ -1,0 +1,89 @@
+{
+  "snapshot": "2026-10-28 18:50:28 CST",
+  "source_sha256": {
+    "train/run.json": {
+      "sha256": "197a96fa49c6c9b15686d50946faaf6767af6e04a3a41e3522d5c34551867001",
+      "bytes": 816
+    },
+    "train/SFT_TRAINING_COMPLETE.json": {
+      "sha256": "1f3c42d5b030417f7eda744b4d434b7c7244072809c43b3befc4668dd7ad62c3",
+      "bytes": 679
+    },
+    "train/PILOT_DECISION.json": {
+      "sha256": "a760830409879677780b204029053454e0e0852aded6e4d576a231149a4786fd",
+      "bytes": 349
+    },
+    "train/latest.json": {
+      "sha256": "42315517f71816c3bfd44007cc506106de72b0b268037a0a0af77faacfd42a3c",
+      "bytes": 461
+    },
+    "train/metrics.jsonl": {
+      "sha256": "cb846a730fd489c75b36c99df7027d092735501505376691dd694bc3fe39bac6",
+      "bytes": 966735
+    },
+    "train/resources.jsonl": {
+      "sha256": "d0c6beaa0aafcee342faa1d90a618199a925826343d8736b4fb3392d2ed1dd1e",
+      "bytes": 166107
+    },
+    "train/SFT_WORKFLOW.json": {
+      "sha256": "83b1608d6612c6a2202408a1608b6cb75cfe198024d666ab8cdce15254dc9af4",
+      "bytes": 1406
+    },
+    "train/SFT_ANALYSIS_WORKFLOW.json": {
+      "sha256": "45341b30d1bda8c544055f880206f1ae9d9c3f2f51513cab3aaa49951fe6d2e9",
+      "bytes": 251
+    },
+    "train/SFT_CHECKPOINT_AUDIT.json": {
+      "sha256": "5a6414f593c8be26301b9fd85fb61a8ec8d9c750b728683a48590f688152d0db",
+      "bytes": 383
+    },
+    "train/comparison_scope.json": {
+      "sha256": "cdc84fbd5ed997d0938b24746213f0c29c751b324849eca65e217854cf0887b7",
+      "bytes": 7180
+    },
+    "train/checkpoint_audit/checkpoint_audit.json": {
+      "sha256": "f54148e6b38bae4a8ce1c444f87a9e700c81e700ce13105a2361ce7e59c74a78",
+      "bytes": 5994
+    },
+    "profile/run.json": {
+      "sha256": "9983eb6284f2d8381e52795e260ca478caed0ac0499378ab596c9ee0492ad8cf",
+      "bytes": 818
+    },
+    "profile/checkpoint-000000.json": {
+      "sha256": "19d188e942171c2d68755ddae1335e15f863fbfdd0ef4dffc47920b70010d470",
+      "bytes": 377
+    },
+    "profile/checkpoint-000002.json": {
+      "sha256": "6eff13cb737a0a05bf72f78cb447675f1460587f3273bf728f2178bce07a965d",
+      "bytes": 378
+    },
+    "profile/SFT_PROFILE_PASS.json": {
+      "sha256": "7b4819c77ee1a5d70670010d39630419554ba2781d5645215df5bb6c5a43f402",
+      "bytes": 292
+    },
+    "evaluation/scheduler_resource_review.json": {
+      "sha256": "0ae512b3fe0c22cd90f6328d823deb36eea49cc169298340b2a458d0d969c0fa",
+      "bytes": 2954
+    },
+    "evaluation/SCHEDULER_RESOURCE_OVERRIDE.json": {
+      "sha256": "5b9656c47d0e159430fd0ba7b738c6e42d46eb12aa91adbfe1be4eaf662c0780",
+      "bytes": 580
+    },
+    "evaluation/SFT_WORKFLOW.json": {
+      "sha256": "83b1608d6612c6a2202408a1608b6cb75cfe198024d666ab8cdce15254dc9af4",
+      "bytes": 1406
+    },
+    "evaluation/SFT_ANALYSIS_WORKFLOW.json": {
+      "sha256": "45341b30d1bda8c544055f880206f1ae9d9c3f2f51513cab3aaa49951fe6d2e9",
+      "bytes": 251
+    }
+  },
+  "training_updates": 3000,
+  "selected_step": 500,
+  "checked_checkpoints": 8,
+  "behavior_results_available": false,
+  "report_sha256": "34b7b55585aba0e632d3b336801dfe77425f672d6bacf906ae16feaf0ca1813f",
+  "cpu_audit_passed": true,
+  "local_report_simulation_steps": 0,
+  "local_report_model_forwards": 0
+}
