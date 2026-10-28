@@ -51,7 +51,12 @@ import os,json,hashlib,sys
 from pathlib import Path
 config,stage=sys.argv[1:];p=Path(os.environ['DSRL_SFT_GATE_DIR'])
 flag={'align':'SFT_DATA_PASS.json','profile':'SFT_ALIGNMENT_PASS.json','train':'SFT_PROFILE_PASS.json','evaluate':'SFT_TRAINING_COMPLETE.json'}[stage]
-assert json.loads((p/flag).read_text())['passed'],flag
+if stage=='profile' and not (p/flag).exists():
+    ready=json.loads((p/'SFT_BASELINE_READY.json').read_text())
+    assert ready['passed'] and ready['comparison_scope']=='within_native_runtime_only'
+    assert ready['cross_framework_numerical_equivalence'] is False
+    assert ready['comparison_scope_sha256']==hashlib.sha256((p/'comparison_scope.json').read_bytes()).hexdigest()
+else:assert json.loads((p/flag).read_text())['passed'],flag
 assert json.loads((p/'run.json').read_text())['config_sha256']==hashlib.sha256(Path(config).read_bytes()).hexdigest(),'Prerequisite config differs'
 PY
   test -f "$sft_prefix/requirements-resolved.txt"

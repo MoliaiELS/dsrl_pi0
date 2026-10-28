@@ -326,12 +326,14 @@ def train(args,logger):
         num_training_steps=tr['max_updates'],num_cycles=.5,min_lr=0.)
     # The same public HF scheduler is called by pinned RLinf get_lr_scheduler('cosine').
     state=dict(config_path=str(Path(args.config).resolve()),manifest_sha256=file_sha(gate/'data_manifest.json'),
-        best_loss=float('inf'),best_step=0,best_checkpoint='',initial_validation=None,current_validation=None,frozen_sha256=baseline)
+        best_loss=float('inf'),best_step=0,best_checkpoint='',initial_validation=None,current_validation=None,frozen_sha256=baseline,
+        comparison_scope_sha256=file_sha(args.output/'comparison_scope.json') if (args.output/'comparison_scope.json').exists() else None)
     step=0
     if args.restore:
         saved=restore_checkpoint(Path(args.restore),params,optimizer,scheduler,data)
         assert saved['config_sha256']==file_sha(args.config) and saved['data_manifest_sha256']==state['manifest_sha256']
         assert saved['state']['frozen_sha256']==baseline
+        assert saved['state'].get('comparison_scope_sha256')==state['comparison_scope_sha256']
         state=saved['state'];step=saved['step']
     else:
         initial=validate_loss(model,data,tr['validation_noise_seed']);state['initial_validation']=initial
@@ -447,10 +449,13 @@ def main():
     parser.add_argument('--reference-dir',default=os.environ.get('DSRL_SFT_REFERENCE_DIR',''));args=parser.parse_args()
     from tools.run_logger import RunLogger
     args.output.mkdir(parents=True,exist_ok=True);logger=RunLogger(args.output)
+    scope_path=Path(args.gate_dir)/'comparison_scope.json'
+    if scope_path.exists():atomic(args.output/'comparison_scope.json',read(scope_path))
     if args.mode!='verify':atomic(args.output/'run.json',dict(commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
         mode='sft-'+args.mode,learning=args.mode in ['profile','train'],job_id=os.environ.get('SLURM_JOB_ID'),
         config_sha256=file_sha(args.config),python=sys.executable,hostname=os.uname().nodename,
         original_model=os.environ['DSRL_MODEL_PATH'],converted_model=str(converted_path()),gate_dir=args.gate_dir,
+        comparison_scope=read(scope_path)['comparison_scope'] if scope_path.exists() else 'strict_migration_check',
         cuda_visible_devices=os.environ.get('CUDA_VISIBLE_DEVICES'),
         rlinf_commit=subprocess.check_output(['git','-C',os.environ['DSRL_RLINF_ROOT'],'rev-parse','HEAD'],text=True).strip(),
         slurm={k:v for k,v in os.environ.items() if k in ['SLURM_JOB_PARTITION','SLURM_CPUS_PER_TASK','SLURM_JOB_NODELIST']}))
