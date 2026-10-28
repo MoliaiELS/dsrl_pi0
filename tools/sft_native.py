@@ -404,7 +404,7 @@ def main():
         rlinf_commit=subprocess.check_output(['git','-C',os.environ['DSRL_RLINF_ROOT'],'rev-parse','HEAD'],text=True).strip(),
         slurm={k:v for k,v in os.environ.items() if k in ['SLURM_JOB_PARTITION','SLURM_CPUS_PER_TASK','SLURM_JOB_NODELIST']}))
     if args.mode!='verify':atomic(args.output/'numerical_compatibility.json',dict(
-        siglip_gelu='tanh approximation as original Flax nn.gelu default, rather than native default erf',
+        siglip_and_gemma_gelu='tanh approximation as original Flax nn.gelu default, rather than native default erf',
         modified_parameters=False,tf32_matmul=False,tf32_cudnn=False,bf16_reduced_precision_reduction=False,
         upstream_rlinf_unmodified=True))
     try:
