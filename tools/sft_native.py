@@ -242,6 +242,8 @@ class Demonstrations:
 def adapters(model,cfg,output):
     import torch
     from peft import LoraConfig,inject_adapter_in_model
+    from tools.sft_compat import PeftRuntimeConfig
+    if not isinstance(model.config,dict):model.config=PeftRuntimeConfig(**vars(model.config))
     for p in model.parameters():p.requires_grad_(False)
     model=inject_adapter_in_model(LoraConfig(r=cfg['lora_rank'],lora_alpha=cfg['lora_alpha'],lora_dropout=cfg['lora_dropout'],
         target_modules='all-linear',init_lora_weights='gaussian'),model)

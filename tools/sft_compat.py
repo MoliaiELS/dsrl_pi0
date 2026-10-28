@@ -1,8 +1,14 @@
 """Explicit source-backed numerical fixes for the original JAX checkpoint path."""
-from types import MethodType
+from types import MethodType,SimpleNamespace
 import math
 
 _original_observation_cast=None
+
+
+class PeftRuntimeConfig(SimpleNamespace):
+    """Retain native attribute access while exposing PEFT's mapping boundary."""
+    def get(self,key,default=None):return getattr(self,key,default)
+    def to_dict(self):return vars(self).copy()
 
 
 def observation_cast_preserving_state(observation,dtype):
