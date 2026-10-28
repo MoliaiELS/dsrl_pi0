@@ -52,11 +52,16 @@ def load_model():
         assert file_sha(weights)==read(converted_path()/'CONVERSION_COMPLETE.json')['converted_sha256'],'Converted base weight hash changed'
         load_model.verified_signature=signature
     torch.backends.cuda.matmul.allow_tf32=False
+    torch.backends.cudnn.allow_tf32=False
+    torch.backends.cuda.matmul.allow_bf16_reduced_precision_reduction=False
     cfg=OmegaConf.create(dict(model_path=str(converted_path()),precision='bf16',pi05=False,action_dim=7,
         num_action_chunks=20,num_steps=10,openpi=dict(task='sft',config_name='pi0_libero',action_horizon=50,
         action_chunk=20,model_action_dim=32,paligemma_variant='gemma_2b',action_expert_variant='gemma_300m',
         max_token_len=48,discrete_state_input=False,torch_compile=False)))
-    return get_model(cfg).to(device='cuda')
+    model=get_model(cfg)
+    from tools.sft_compat import apply_original_siglip_activation
+    apply_original_siglip_activation(model)
+    return model.to(device='cuda')
 
 
 def observation(sample,device='cuda'):
@@ -398,6 +403,10 @@ def main():
         cuda_visible_devices=os.environ.get('CUDA_VISIBLE_DEVICES'),
         rlinf_commit=subprocess.check_output(['git','-C',os.environ['DSRL_RLINF_ROOT'],'rev-parse','HEAD'],text=True).strip(),
         slurm={k:v for k,v in os.environ.items() if k in ['SLURM_JOB_PARTITION','SLURM_CPUS_PER_TASK','SLURM_JOB_NODELIST']}))
+    if args.mode!='verify':atomic(args.output/'numerical_compatibility.json',dict(
+        siglip_gelu='tanh approximation as original Flax nn.gelu default, rather than native default erf',
+        modified_parameters=False,tf32_matmul=False,tf32_cudnn=False,bf16_reduced_precision_reduction=False,
+        upstream_rlinf_unmodified=True))
     try:
         if args.mode=='align':align(args,logger)
         elif args.mode in ['profile','train']:train(args,logger)
