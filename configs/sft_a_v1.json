@@ -66,5 +66,7 @@
     3318,
     3319
   ],
-  "reserved_sets_used": false
+  "reserved_sets_used": false,
+  "data_action_offset": 1,
+  "data_timing": "LIBERO create_dataset records obs[j] after action[j]; supervised next-action windows use actions[j+1:j+51]. Preserve genuine goal labels and do not cross episode ends."
 }

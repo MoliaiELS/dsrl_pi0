@@ -1,8 +1,22 @@
 # DSRL π₀ / LIBERO 基线进度
 
-更新时间：2026-10-27（Asia/Shanghai）。本文件记录事实状态；提交成功不等于运行成功。
+更新时间：2026-10-28（Asia/Shanghai）。本文件记录事实状态；提交成功不等于运行成功。
 
-## 新轮次：语言目标与阶段诊断 first_batch（2026-10-27；实施中）
+## 当前：SFT-A目标接口/B技能补齐（2026-10-28；前置验证中）
+
+- 用户已要求继续实验方案。首批18584已**COMPLETED/0、990/990有效、40/40确认cluster完整**，全量轨迹与权重闭环通过，技术错误/重试0。Slurm正式评估6:30:12；含两个E0累计6.7353 GPU小时、420164物理步（408800策略、11360重放、4构造），新增训练0。
+- 确认集每策略/目标80条：Base首抓A35、B4，官方goal ever A33、B10；DSRL s0/s1/s2首抓A均80、B均0，goal ever A80/80/79、B21/27/8。B选择性首次完成仅1/2/4；B指令下首抓A为77/74/62，Base38、有界随机31。三份controller比两个参照均有额外A偏置；Base本身B也弱，目标grounding和B稳定抓取技能仍混杂。
+- DSRL平均官方ever相对Base +34.58pp（95% reset-cluster区间27.50–41.67），相对有界随机+44.58pp（37.50–51.25）；平均正收益不能当作双目标指令接口可用。注册判断`GOAL_BIAS_CANDIDATE`保留。E2双任务×三条件完整goal/首阶段均0/10，不开启阶段确认、SFT-S或PPO。
+- 已完成人工审阅报告（7个问题、单一优先方向、图表与配置对应录像）。本地`tmp/language-stage-20261027/job-18584/REPORT.html`及REPORT.md；120本地引用、86视频引用全部存在。远端同目录已更新，原自动报告/decision与ZIP均保留；`REPORT_REVIEW_COMPLETE.json`通过，数值统计、锁定协议与原归档逐文件比较未改变。最终归档`runs/job-18584-research-final.zip`，SHA256 `d1a64cbef1c4683f93c4ee7eb14a911d3942ed699c75a9640c6eb882284b74f5`。
+- 下一批只做**SFT-A**：真实A/B各50演示，每目标整轨迹40train/10val，split99023，训练seed17；LoRA rank8/alpha8/dropout0，实际all_linear覆盖需核验；global8/micro1、LR1e-4、warmup100、clip1，500更新pilot包含在最多3000更新内。配置`configs/sft_a_v1.json`；用新3300–3319复核，不在旧确认或保留集调参。目标均衡、固定验证窗口/噪声，按隔离轨迹val loss选checkpoint。
+- 官方数据源已锁定HF `yifengzhu-hf/LIBERO-datasets` revision `f13aa24a3da8c43c7225569f28c562979fa0e35a`，两HDF5合计约1.28GB。服务器HF访问失败，已按约定本地下载并通过官方LFS SHA校验后传入`datasets/libero/sft_a_raw/`。初步读取B文件确有50轨迹，仍需完整目标、相机、本体及真实50步窗口审计。
+- 独立分支`experiment/sft-a-20261028`；RLinf依赖锁定`fab7f407fbc611085eb163962e3c89c0ab424c1a`。独立venv在`DataRoot/envs/sft_a_20261028`，不修改原dsrl_pi0环境；安装进行中，日志`logs/sft-env-20261028.log`。锁定RLinf默认VLA验证尚未实现，拟复用其native OpenPI模型/损失并补单卡目标均衡、验证与恢复入口，不能称默认RLinf SFT流水线已跑通。
+- 已确认原模型的数据约定含**额外DeltaActions(first6)**，需完整保留；新训练不能直接使用未经变换的原始动作。数据适配器将与原OpenPI实际变换对比，并在训练前核验相机方向与proprio。
+- 数据短测**18639**（代码1900f8a）已提交，20分钟上限；计算节点4090资源排队后将同一pending作业调到4090node1做前置。此任务无VLA前向、无梯度更新。查询`powershell -ExecutionPolicy Bypass -File tools/remote.ps1 status 18639`。新固定入口sft-data/sft-align/sft-smoke/sft-train/sft-eval已接入，尚未实现的native阶段会在提交前拒绝；当前尚无正式SFT训练。
+
+## first_batch历史实施与自动交接（2026-10-27；已完成）
+
+### 语言目标与阶段诊断 first_batch
 
 ### 会话交接：用户要求暂时结束，后台继续（2026-10-27晚）
 

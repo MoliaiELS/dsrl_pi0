@@ -4,6 +4,8 @@ import copy
 import hashlib
 import json
 import os
+import sys
+import traceback
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
@@ -64,7 +66,8 @@ def prepare(config, data_root, output, render=False):
     import subprocess
     commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
     atomic(output / 'run.json', dict(commit=commit, mode='sft-data', job_id=os.environ.get('SLURM_JOB_ID'),
-                                  learning=False, config_sha256=file_sha(config)))
+                                  learning=False, config_sha256=file_sha(config), hostname=os.uname().nodename,
+                                  python=sys.executable, submodules=subprocess.check_output(['git','submodule','status','--recursive'],text=True)))
     cfg = read(config)
     model_root = Path(data_root) / 'checkpoints/pi0_libero'
     pipeline, stats = original_transforms(model_root)
@@ -88,16 +91,17 @@ def prepare(config, data_root, output, render=False):
                     env.seed(99030);env.reset()
                     for i,name in enumerate(names):
                         ep=data[name]; t=len(ep['actions'])
-                        assert ep['actions'].shape==(t,7) and t>=50
+                        offset=cfg['data_action_offset']
+                        assert ep['actions'].shape==(t,7) and t>=50+offset
                         assert int(ep['dones'][-1])==1 and int(ep['rewards'][-1])==1
                         assert np.isfinite(ep['actions'][...]).all() and np.isfinite(ep['states'][...]).all()
                         env.reset_from_xml_string(fix_xml(ep.attrs['model_file']))
                         env.set_init_state(ep['states'][-1])
                         success=bool(env.check_success())
                         assert success, (goal,name,'recorded terminal state does not satisfy official goal')
-                        val_starts=np.unique(np.rint(np.linspace(0,t-50,min(cfg['training']['validation_windows_per_trajectory'],t-49))).astype(int)).tolist()
+                        val_starts=np.unique(np.rint(np.linspace(0,t-50-offset,min(cfg['training']['validation_windows_per_trajectory'],t-49-offset))).astype(int)).tolist()
                         entries.append(dict(goal=goal, trajectory=name, split='train' if i in training else 'validation',
-                                            frames=t, real_windows=t-49, validation_starts=val_starts, terminal_goal_verified=success))
+                                            frames=t, real_windows=t-49-offset, validation_starts=val_starts, terminal_goal_verified=success))
                         logger.log({'phase':'auditing_demonstrations','sft/demonstrations_checked':len(entries)},0)
                 finally: env.close()
                 if render:
@@ -105,7 +109,7 @@ def prepare(config, data_root, output, render=False):
                 example=data[names[0]]
                 raw=dict(state=np.concatenate([example['obs/ee_states'][0],example['obs/gripper_states'][0]]),
                          image=example['obs/agentview_rgb'][0], wrist=example['obs/eye_in_hand_rgb'][0],
-                         actions=example['actions'][:50])
+                         actions=example['actions'][cfg['data_action_offset']:cfg['data_action_offset']+50])
                 inp={'observation/state':raw['state'], 'observation/image':raw['image'],
                      'observation/wrist_image':raw['wrist'],'prompt':PROMPTS[goal], 'actions':raw['actions'].copy()}
                 check=pipeline(copy.deepcopy(inp))
@@ -144,6 +148,9 @@ def prepare(config, data_root, output, render=False):
               camera_alignment_passed=render, simulation_steps=0, model_forwards=0))
         logger.log({'phase':'completed','sft/demonstrations_checked':100},0)
         return manifest
+    except BaseException as error:
+        atomic(output/'FAILED.json',dict(type=type(error).__name__,error=str(error),traceback=traceback.format_exc(),gradient_updates=0))
+        raise
     finally: logger.close()
 
 
@@ -158,10 +165,16 @@ def audit_cameras(goal,data,names,output):
         env.seed(99030);env.reset()
         for name in names:
             ep=data[name];env.reset_from_xml_string(fix_xml(ep.attrs['model_file']))
-            obs=env.set_init_state(ep['states'][0])
+            # The official creator steps action[j], then records obs[j], while
+            # retaining states[j] from before that action. Compare the post state.
+            obs=env.set_init_state(ep['states'][1])
             state=np.concatenate([ep['obs/ee_states'][0],ep['obs/gripper_states'][0]])
-            np.testing.assert_allclose(obs_to_qpos(obs,SimpleNamespace(env='libero')),state,atol=1e-5,rtol=0)
-            row=dict(goal=goal,trajectory=name)
+            joints=np.r_[ep['obs/joint_states'][0],ep['obs/gripper_states'][0]]
+            np.testing.assert_allclose(ep['states'][1][1:10],joints,atol=1e-7,rtol=0)
+            row=dict(goal=goal,trajectory=name,observation_state_offset=1,
+                     post_state_joint_observation_max_error=float(np.max(abs(ep['states'][1][1:10]-joints))),
+                     reconstructed_eef_observation_max_error=float(np.max(abs(obs_to_qpos(obs,SimpleNamespace(env='libero'))-state))),
+                     pose_note='EEF observables may lag a physics substep; this rerender is not a bit-exact source simulator replay')
             for key,obs_key,raw_key in [('image','agentview_image','agentview_rgb'),('wrist','robot0_eye_in_hand_image','eye_in_hand_rgb')]:
                 target=obs[obs_key][::-1,::-1].astype(float); raw=ep['obs'][raw_key][0]
                 choices=[]
@@ -180,9 +193,8 @@ def audit_cameras(goal,data,names,output):
 
 
 def transform_sample(manifest,goal,state,images,actions=None):
-    """NumPy/JAX CPU adapter matching the frozen author's OpenPI convention."""
-    import jax
-    import jax.numpy as jnp
+    """Adapter using the same author's OpenPI client resize implementation."""
+    from openpi_client import image_tools
     state=np.pad(np.asarray(state), (0,32-len(state)))
     raw_state=state.copy();norm=manifest['normalisation']
     state=(state-np.asarray(norm['state']['mean']))/(np.asarray(norm['state']['std'])+1e-6)
@@ -191,7 +203,7 @@ def transform_sample(manifest,goal,state,images,actions=None):
         flips=manifest['image_flip_axes'].get(key,[False,False])
         img=np.ascontiguousarray(img[::-1 if flips[0] else 1,::-1 if flips[1] else 1])
         if img.shape[:2]!=(224,224):
-            img=np.asarray(jnp.round(jax.image.resize(jnp.asarray(img),(224,224,3),method='linear')).clip(0,255).astype(jnp.uint8))
+            img=np.asarray(image_tools.resize_with_pad(img,224,224))
         result[key]=img
     result['tokens']=np.asarray(manifest['tokens'][goal]['ids'],dtype=np.int64)
     result['mask']=np.asarray(manifest['tokens'][goal]['mask'],dtype=bool)

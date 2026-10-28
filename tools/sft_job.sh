@@ -17,6 +17,10 @@ export DSRL_OLD_PYTHON="$conda_root/envs/$conda_env/bin/python"
 export DSRL_MODEL_PATH="$data_root/checkpoints/pi0_libero"
 run_dir="$data_root/runs/job-$SLURM_JOB_ID"
 mkdir -p "$run_dir/libero_config"
+trap 'stage_exit=$?; printf "{\"stage\":\"%s\",\"exit_code\":%d}\n" "$stage" "$stage_exit" > "$run_dir/SFT_STAGE_FAILED.json"' ERR
+git rev-parse HEAD > "$run_dir/code-commit.txt"
+git submodule status --recursive > "$run_dir/submodules.txt"
+python -m pip freeze --all > "$run_dir/simulation-requirements.txt"
 export LIBERO_CONFIG_PATH="$run_dir/libero_config"
 export TF_CPP_MIN_LOG_LEVEL=3
 export PYTHONWARNINGS=ignore
