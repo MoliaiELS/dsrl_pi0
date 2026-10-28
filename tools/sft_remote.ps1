@@ -21,8 +21,8 @@ $slurm=$machine.Slurm
 $argsList=@('sbatch','--parsable',('--partition='+$slurm.Partition),('--account='+$slurm.Account),('--qos='+$slurm.Qos),('--gres='+$slurm.Gres),('--cpus-per-task='+$slurm.Cpus),('--time='+$machine.SftTimes.$stage),('--job-name=sft-a-'+$stage),('--output='+$machine.DataRoot+'/logs/slurm/%j.log'))
 if ($slurm.Exclude) { $argsList+=('--exclude='+$slurm.Exclude) }
 if ($DependencyJobId) { $argsList+=('--dependency=afterok:'+$DependencyJobId) }
-$argsList+=@($repo+'/tools/sft_job.sh',$repo,$machine.CondaRoot,$machine.CondaEnv,$machine.DataRoot,$stage,$ExperimentConfig,$machine.SftEnvironmentPrefix,$machine.RLinfRoot,$SmokeJobId,$RestorePath,$machine.BashSetupPath)
-$lines=@('set -euo pipefail',('source '+(Q $machine.BashSetupPath)),('cd '+(Q $repo)),('mkdir -p '+(Q ($machine.DataRoot+'/logs/slurm'))), (($argsList | ForEach-Object {Q $_}) -join ' '))
+$argsList+=@(($repo+'/tools/sft_job.sh'),$repo,$machine.CondaRoot,$machine.CondaEnv,$machine.DataRoot,$stage,$ExperimentConfig,$machine.SftEnvironmentPrefix,$machine.RLinfRoot,$SmokeJobId,$RestorePath,$machine.BashSetupPath)
+$lines=@('set -euo pipefail',('source '+(Q $machine.BashSetupPath)),('cd '+(Q $repo)),('mkdir -p '+(Q ($machine.DataRoot+'/logs/slurm'))),'bash -n tools/sft_job.sh', (($argsList | ForEach-Object {Q $_}) -join ' '))
 $encoded=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes(($lines -join "`n")+"`n"))
 & ssh -o BatchMode=yes -o ConnectTimeout=15 $machine.SshHost "echo $encoded | base64 -d | bash"
 if ($LASTEXITCODE -ne 0) { throw 'SFT submission failed.' }
