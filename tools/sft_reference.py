@@ -61,7 +61,8 @@ def static_reference(output):
     atomic(output/'manifest.json',dict(cases=rows,backend=str(jax.devices()),device_kind=jax.devices()[0].device_kind,gradient_updates=0,
            original_checkpoint=os.environ['DSRL_MODEL_PATH'],original_protocol_sha256=file_sha(root/('protocol.resolved.json' if (root/'protocol.resolved.json').exists() else 'resolved_protocol.json'))))
     import subprocess,sys
-    atomic(output.parent/'run.json',dict(mode='sft-reference',learning=False,job_id=os.environ.get('SLURM_JOB_ID'),
+    record=output.parent/('JAX_REFERENCE_RUN.json' if (output.parent/'run.json').exists() else 'run.json')
+    atomic(record,dict(mode='sft-reference',learning=False,job_id=os.environ.get('SLURM_JOB_ID'),
         commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),python=sys.executable))
     atomic(output.parent/'SFT_REFERENCE_PASS.json',dict(passed=True,cases=120,gradient_updates=0,
            manifest_sha256=file_sha(output/'manifest.json'),internal_max=max(r['internal_max'] for r in rows)))
