@@ -66,7 +66,7 @@ def observation(sample,device='cuda'):
     # a second batch dimension. array(copy=True) preserves zero-dimensional masks.
     tensor=lambda a:torch.as_tensor(np.array(a,copy=True,order='C'),device=device)[None]
     keys=[k[7:] for k in sample if k.startswith('image__')]
-    result=Observation.from_dict(dict(state=tensor(sample['state']),
+    result=Observation.from_dict(dict(state=tensor(sample['state']).float(),
         image={k:tensor(sample['image__'+k]) for k in keys},
         image_mask={k:tensor(sample['image_mask__'+k]).bool() for k in keys},
         tokenized_prompt=tensor(sample['tokens']).long(),tokenized_prompt_mask=tensor(sample['mask']).bool()))
