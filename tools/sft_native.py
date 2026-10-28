@@ -385,7 +385,10 @@ def main():
     if args.mode!='verify':atomic(args.output/'run.json',dict(commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
         mode='sft-'+args.mode,learning=args.mode in ['profile','train'],job_id=os.environ.get('SLURM_JOB_ID'),
         config_sha256=file_sha(args.config),python=sys.executable,hostname=os.uname().nodename,
-        original_model=os.environ['DSRL_MODEL_PATH'],converted_model=str(converted_path()),gate_dir=args.gate_dir))
+        original_model=os.environ['DSRL_MODEL_PATH'],converted_model=str(converted_path()),gate_dir=args.gate_dir,
+        cuda_visible_devices=os.environ.get('CUDA_VISIBLE_DEVICES'),
+        rlinf_commit=subprocess.check_output(['git','-C',os.environ['DSRL_RLINF_ROOT'],'rev-parse','HEAD'],text=True).strip(),
+        slurm={k:v for k,v in os.environ.items() if k in ['SLURM_JOB_PARTITION','SLURM_CPUS_PER_TASK','SLURM_JOB_NODELIST']}))
     try:
         if args.mode=='align':align(args,logger)
         elif args.mode in ['profile','train']:train(args,logger)

@@ -55,6 +55,8 @@ assert json.loads((p/flag).read_text())['passed'],flag
 assert json.loads((p/'run.json').read_text())['config_sha256']==hashlib.sha256(Path(config).read_bytes()).hexdigest(),'Prerequisite config differs'
 PY
   test -f "$sft_prefix/requirements-resolved.txt"
+  cp "$sft_prefix/requirements-resolved.txt" "$run_dir/native-requirements.txt"
+  git -C "$rlinf_root" rev-parse HEAD > "$run_dir/rlinf-commit.txt"
   source "$sft_prefix/bin/activate"
   export PYTHONPATH="$repo:$rlinf_root:$PYTHONPATH"
   python -u -m tools.sft_native --mode "$stage" --config "$config" --output "$run_dir" --gate-dir "$DSRL_SFT_GATE_DIR" --restore "$restore"
