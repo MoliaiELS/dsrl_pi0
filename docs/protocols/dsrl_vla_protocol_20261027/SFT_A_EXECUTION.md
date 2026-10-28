@@ -77,6 +77,36 @@ schedule unchanged.
 
 ## Accounting and runtime
 
+### Migration review and attribution scope (2026-10-28)
+
+Run18655 completed20 original Base development episodes (8000 physics steps,
+zero technical retries/errors) with the original XML/physics/proprio/RGB reset
+checks and the actual saved z arrays. First-grasp/goal-vector agreement is
+60%/70%, below the declared90% gate. Static alarms remain23/120 after source-backed
+compatibility corrections (meanRMSE .011173, maxRMSE .088213, maxabsolute2.0438).
+The original JAX model itself differs across4090/3090 with33/120 alarms,
+maxRMSE .087781 and maxabsolute2.0403 on identical arrays. This documents numeric
+sensitivity; it does **not** establish cross-framework equivalence.
+
+The original strict migration gate stays **failed**. Under section11.1's explicit
+fallback, this batch proceeds only as a new **within-native-runtime** SFT-A
+experiment, with paired native-unadapted/native-adapted behavior checks. It cannot
+be attributed as a one-variable change relative to the old JAX DSRL results.
+Native B correct-first is1/10, wrong-A-first4/10, B-ever2/10; A correct-first and
+ever are2/10. Genuine A/B data first-grasp and official terminal success are each
+50/50. These support testing the same targeted adaptation in the native runtime.
+
+`configs/sft_a_migration_review.json` locks the actual evidence hashes and limited
+decision. `tools/sft_migration_review.py` verifies complete trajectories/artifacts,
+exact reset evidence, isolated80/20 data and the genuine demo audit before creating
+`SFT_BASELINE_READY.json` with `cross_framework_numerical_equivalence=false`.
+It never creates `SFT_ALIGNMENT_PASS.json` or changes failed source metrics.
+The scope file follows profile/checkpoint/train/evaluation. Original hyperparameters,
+data split, new behavior seeds, pilot gate and shared3000-update cap remain fixed.
+No SFT-S or PPO starts from this review. Trajectory validation is held out from
+adapter training; overlap with the base model's historical pretraining is unverified,
+so no never-seen-task/data or OOD claim is justified.
+
 The new environment is isolated at
 `/mnt/slurmfs-4090node1/homes/yguo704/miniforge3/envs/dsrl_sft_native_20261028`.
 The first NFS-target installation was stopped during slow cross-filesystem file

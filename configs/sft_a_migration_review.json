@@ -1,0 +1,23 @@
+{
+  "source_job": "18655",
+  "comparison_scope": "within_native_runtime_only",
+  "approve_sft_a_profile": true,
+  "cross_framework_equivalence_claim": false,
+  "protocol_basis": "EXPERIMENT_SPEC.md section 11.1 fallback",
+  "config_sha256": "71bc984bddee727bbd83d4e2b46eeb2462485cb595b6b7fe92511fe742b8c9b1",
+  "reason": "Reject cross-framework numerical equivalence: 23/120 static alarms, mean RMSE 0.01117301099, max RMSE 0.08821263164, max absolute error 2.043797; first-grasp/goal-vector agreement 0.60/0.70 below the predeclared 0.90 gate. Original JAX across 4090/3090 itself has 33/120 alarms and max absolute error 2.040344 with identical inputs, demonstrating numerical sensitivity rather than proving native equivalence. All 20 native development episodes complete without technical errors at exactly matched initial XML/physics/proprio/RGB and replayed explicit z. Source-backed weight-load, GELU and token scaling differences have been addressed; remaining vision/operator differences are not declared equivalent. Native B first-grasp is 1/10, wrong-A first is 4/10, B-ever is 2/10; targeted balanced genuine demonstrations remain appropriate. All 50 A and 50 B demonstrations grasp the true requested object first and satisfy the final official goal. Approve only the two-update SFT-A profile, followed by the predeclared 500-update pilot and conditional continuation within the shared 3000-update maximum. Attribute results only to paired native-unadapted/native-adapted comparisons on new seeds 3300-3319; no old JAX DSRL single-variable comparison, no stage or PPO training, no OOD claim.",
+  "source_artifact_sha256": {
+    "run.json": "4d752d81eeb4ac3b9ca805dde61b6bcf13d8b13439ad9d0deecf948117e6f7f9",
+    "native-requirements.txt": "f2374e55360d3823e2e2451faf80f7b44515325603e7cfbd911041304c4a1115",
+    "data_manifest.json": "263877f24814198894fcfffc53142b00e1bae852a663b30dc86263da56aa6705",
+    "static_alignment.json": "8a89f0de107a92e0864d4b3ec037fa1bfcf7f3470926972d4a8794d82a46540a",
+    "closed_loop_alignment.json": "c8cf96e87de4137676372965600aa8f924633d3444f2f338053c5aeb47029103",
+    "closed_loop/SIMULATION_COMPLETE.json": "ad17a7dad7a9667a80c848d826c047a3e25fbc4fbcf52056650a61e57d25e53b",
+    "closed_loop/budget.json": "46ff1a6f137a725954b9239919b61164a8f87b917e4f983a6e349ff270b67f79",
+    "closed_loop/results.json": "794d34e3a3068d81ade930bbbef158c90f87c57523cc3aa4030486e20d6d82e3",
+    "prefix_alignment.json": "e651abaaadbcbf83370aff7744a90f9c542964abc0714e9004fdcb123fc8180f",
+    "numerical_compatibility.json": "fdb516eab41eba00c51609460d2442ed089ba8e6fea381d694236e96c506e5f8"
+  },
+  "demo_order_sha256": "f157cb37b657d75daa0fd03ea5ad9b43aaa1053870146ac1ac4c8647e9576103",
+  "jax_cross_gpu_sha256": "0a6bdf5a608c6cef9876dbb95d9d6d1f92107d5cce1647a67b284c6f033455dc"
+}
