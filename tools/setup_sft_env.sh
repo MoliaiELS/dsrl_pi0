@@ -10,7 +10,7 @@ export USE_TF=0
 export HF_HUB_DISABLE_XET=1
 if [[ ! -d "$rlinf_root/.git" ]]; then
   mkdir -p "$(dirname "$rlinf_root")"
-  git -c http.lowSpeedLimit=1024 -c http.lowSpeedTime=30 clone --filter=blob:none --no-checkout https://github.com/RLinf/RLinf.git "$rlinf_root"
+  git -c http.lowSpeedLimit=1024 -c http.lowSpeedTime=30 clone --filter=blob:none https://github.com/RLinf/RLinf.git "$rlinf_root"
 fi
 test -z "$(git -C "$rlinf_root" status --porcelain)"
 git -C "$rlinf_root" fetch origin "$commit"
