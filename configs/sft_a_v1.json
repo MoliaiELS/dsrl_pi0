@@ -24,7 +24,7 @@
     "gradient_clip": 1.0,
     "adam_beta1": 0.9,
     "adam_beta2": 0.95,
-    "adam_epsilon": 1e-8,
+    "adam_epsilon": 1e-08,
     "weight_decay": 1e-10,
     "scheduler": "cosine",
     "pilot_updates": 500,
@@ -34,10 +34,37 @@
     "validation_windows_per_trajectory": 8,
     "validation_noise_seed": 99024,
     "selection": "lowest equal-goal, equal-trajectory held-out flow-matching loss",
-    "real_actions_only": true
+    "real_actions_only": true,
+    "pilot_continue_gate": "finite held-out loss lower than initial, and goal B real-7 loss lower than initial; otherwise stop at 500 for review",
+    "scheduler_resolution": "explicit lr_scheduler=cosine; upstream warmup_style field is not read by build_lr_scheduler"
   },
-  "inference": {"prediction_horizon": 50, "execute_chunk": 20, "denoise_steps": 10, "max_prompt_tokens": 48},
-  "behavior_reset_seeds": [3300,3301,3302,3303,3304,3305,3306,3307,3308,3309,3310,3311,3312,3313,3314,3315,3316,3317,3318,3319],
-  "reserved_sets_used": false,
-  "status": "implementation and prerequisite validation"
+  "inference": {
+    "prediction_horizon": 50,
+    "execute_chunk": 20,
+    "denoise_steps": 10,
+    "max_prompt_tokens": 48
+  },
+  "behavior_reset_seeds": [
+    3300,
+    3301,
+    3302,
+    3303,
+    3304,
+    3305,
+    3306,
+    3307,
+    3308,
+    3309,
+    3310,
+    3311,
+    3312,
+    3313,
+    3314,
+    3315,
+    3316,
+    3317,
+    3318,
+    3319
+  ],
+  "reserved_sets_used": false
 }

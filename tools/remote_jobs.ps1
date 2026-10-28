@@ -55,6 +55,8 @@ result={'directory':str(p),'run':read('run.json'),
         'metrics':{k:latest[k] for k in keys if k in latest}}
 if result['run'].get('mode','').startswith('research'):
     result['metrics']={k:v for k,v in result['metrics'].items() if not k.startswith('probe/')}
+if result['run'].get('mode','').startswith('sft'):
+    result['metrics'].update({k:v for k,v in latest.items() if k.startswith('sft/')})
 manifest=read('case_manifest.json')
 if isinstance(manifest,list):
     result['current_case']=next((c for c in manifest if c['id']==latest.get('research/current_case')),None)
@@ -63,11 +65,12 @@ if isinstance(manifest,list):
                                       'planned':sum(c['phase']==phase for c in manifest)} for phase in phases}
 for name in ['SUCCESS.json','FAILED.json','E0_PASS.json','decision.json','budget.json',
              'trajectory_audit.json','closure_check.json','POSTPROCESS_COMPLETE.json',
-             'AUTO_WORKFLOW.json','EXTRA_POSTPROCESS_COMPLETE.json']:
+             'AUTO_WORKFLOW.json','EXTRA_POSTPROCESS_COMPLETE.json','REPORT_REVIEW_COMPLETE.json',
+             'SFT_DATA_PASS.json','SFT_ALIGNMENT_PASS.json','SFT_PROFILE_PASS.json','SFT_TRAINING_COMPLETE.json','SFT_EVAL_COMPLETE.json']:
     value=read(name)
     if name=='E0_PASS.json' and value:
         value={k:value[k] for k in ['passed','short_branches','policy_steps','eval_updates','replay_insertions'] if k in value}
-    if value: result[name]={k:v for k,v in value.items() if k!='traceback'}
+    if value: result[name]={k:v for k,v in value.items() if k not in ['traceback','report_review']}
 metrics=p/'metrics.jsonl'
 if metrics.exists() and not result['run'].get('mode','').startswith('research'):
     events=[json.loads(s) for s in metrics.read_text().splitlines() if s.strip()]

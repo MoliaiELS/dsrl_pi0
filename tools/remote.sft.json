@@ -1,0 +1,31 @@
+{
+  "SshHost": "idac_sever",
+  "BashSetupPath": "/mnt/slurmfs-4090node1/homes/yguo704/dsrl_pi0/bash.sh",
+  "RepoDir": "/mnt/slurmfs-4090node1/homes/yguo704/dsrl_pi0-envfix",
+  "CondaRoot": "/mnt/slurmfs-4090node1/homes/yguo704/miniforge3",
+  "CondaEnv": "dsrl_pi0",
+  "DataRoot": "/mnt/slurmfs-4090node3/user_data/yguo704/dsrl_pi0",
+  "SourceRepo": "/mnt/slurmfs-4090node1/homes/yguo704/dsrl_pi0",
+  "WorktreeRoot": "/mnt/slurmfs-4090node1/homes/yguo704/dsrl_pi0-runs",
+  "RemoteRepoUrl": "https://github.com/MoliaiELS/dsrl_pi0.git",
+  "Slurm": {
+    "Partition": "GPU",
+    "Account": "iadc-acco",
+    "Qos": "phd",
+    "Gres": "gpu:4090:1",
+    "Cpus": 8,
+    "Exclude": "4090node1",
+    "SmokeTime": "00:20:00",
+    "EvalTime": "04:00:00",
+    "TrainTime": "24:00:00"
+  },
+  "SftEnvironmentPrefix": "/mnt/slurmfs-4090node3/user_data/yguo704/dsrl_pi0/envs/sft_a_20261028",
+  "RLinfRoot": "/mnt/slurmfs-4090node1/homes/yguo704/dsrl_vla_deps/rlinf-fab7f407fbc6",
+  "SftTimes": {
+    "data": "00:20:00",
+    "align": "01:00:00",
+    "profile": "00:20:00",
+    "train": "24:00:00",
+    "evaluate": "01:00:00"
+  }
+}
