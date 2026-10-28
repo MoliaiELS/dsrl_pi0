@@ -4,6 +4,9 @@
 
 ### SFT-A 前置更新（10-28）
 
+- 独立环境已通过 `pip check` 与 Torch/Torchvision/PEFT/JAX/HDF5/datasets/native Pi0 导入检查。有效prefix改为个人Conda根目录 `envs/dsrl_sft_native_20261028`，原dsrl_pi0不变；Torch2.11.0+cu130、Torchvision0.26.0+cu130、PEFT0.17.1、JAX0.5.3、Arrow20、datasets2.14.4，完整freeze SHA `f2374e55360d3823e2e2451faf80f7b44515325603e7cfbd911041304c4a1115`。最初NFS环境安装因大量跨盘小文件写入停掉，部分目录与日志保留；改到个人home复用缓存后安装很快完成。
+- **18648 FAILED/1（34秒）** 是native转换器未去掉原checkpoint的NNX `value`叶包装，非训练/数值失败，0更新。兼容适配 `tools/sft_convert.py` 采用原OpenPI加载器相同的去尾路径规则，验证数组对象保持不变；RLinf源码未修改。
+- **18649 RUNNING，3090node2，代码7432399**：实际分配的RTX3090已成功初始化CUDA13，正在转换原checkpoint；之后120组静态比较→20个原Base开发回合闭环。**尚未SFT更新**，必须等完整对齐通过。
 - **18644 COMPLETED/0（1:18）**：10个既有开发观测 × 6条A/B/阶段文本 × 2个显式z，120组原JAX输出及重复输出全部生成（240次原模型采样，0环境步、0更新）。接下来的native对齐直接读取这些固定数组；开发闭环同样重用原Base实际保存的z，不假定CPU/GPU随机数逐位相同。
 - CPU采样器和旧仿真子环境入口检查通过：80/20整轨迹无重叠，global8均衡采样、真实50步窗口及shape通过；A/B训练候选窗口分别4184/2081。数据相机拼图已目视核验；重渲染MAE均低于0.11像素级平均差，EEF历史观测误差约3.2e-5–9.6e-5并已明确标注。
 - **18643 COMPLETED/0（1:49）**：100/100 官方演示真实终态通过 A/B goal；80train/20val；相机方向、joint/gripper 时间对应及原 OpenPI 变换全部通过。manifest SHA `263877f24814198894fcfffc53142b00e1bae852a663b30dc86263da56aa6705`。双相机均需180度旋转，resize使用作者实际client实现；0仿真步、0VLA调用、0更新。

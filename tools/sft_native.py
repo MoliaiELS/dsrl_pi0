@@ -46,6 +46,11 @@ def load_model():
     from omegaconf import OmegaConf
     from rlinf.models.embodiment.openpi import get_model
     assert torch.cuda.is_available(),'Allocated GPU cannot initialize CUDA'
+    weights=converted_path()/'model.safetensors'
+    signature=(weights.stat().st_size,weights.stat().st_mtime_ns)
+    if getattr(load_model,'verified_signature',None)!=signature:
+        assert file_sha(weights)==read(converted_path()/'CONVERSION_COMPLETE.json')['converted_sha256'],'Converted base weight hash changed'
+        load_model.verified_signature=signature
     torch.backends.cuda.matmul.allow_tf32=False
     cfg=OmegaConf.create(dict(model_path=str(converted_path()),precision='bf16',pi05=False,action_dim=7,
         num_action_chunks=20,num_steps=10,openpi=dict(task='sft',config_name='pi0_libero',action_horizon=50,
@@ -54,15 +59,20 @@ def load_model():
     return get_model(cfg).to(device='cuda')
 
 
-def observation(sample):
+def observation(sample,device='cuda'):
     import torch
     from rlinf.models.embodiment.openpi.modules.model import Observation
-    tensor=lambda a:torch.as_tensor(np.ascontiguousarray(a),device='cuda')[None]
+    # ascontiguousarray promotes scalar masks to shape (1,), which would add
+    # a second batch dimension. array(copy=True) preserves zero-dimensional masks.
+    tensor=lambda a:torch.as_tensor(np.array(a,copy=True,order='C'),device=device)[None]
     keys=[k[7:] for k in sample if k.startswith('image__')]
-    return Observation.from_dict(dict(state=tensor(sample['state']),
+    result=Observation.from_dict(dict(state=tensor(sample['state']),
         image={k:tensor(sample['image__'+k]) for k in keys},
         image_mask={k:tensor(sample['image_mask__'+k]).bool() for k in keys},
         tokenized_prompt=tensor(sample['tokens']).long(),tokenized_prompt_mask=tensor(sample['mask']).bool()))
+    assert result.state.shape==(1,32) and result.tokenized_prompt.shape==(1,48)
+    assert all(v.shape==(1,) for v in result.image_masks.values())
+    return result
 
 
 def packed(sample):
