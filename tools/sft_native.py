@@ -81,6 +81,10 @@ def simulation(model,manifest,args,kind,output):
     from tools.sft_data import transform_sample, PROMPTS
     req_r,req_w=os.pipe();res_r,res_w=os.pipe()
     env=dict(os.environ,JAX_PLATFORMS='cpu')
+    if kind=='alignment':
+        # Retain the original absolute asset paths as well as identical code:
+        # model XML hashes include asset filenames, not just scene geometry.
+        env['LIBERO_CONFIG_PATH']=str(Path(os.environ['DSRL_DATA_ROOT'])/'runs/job-18584/libero_config')
     child=subprocess.Popen(['bash','tools/sft_old_env.sh','tools.sft_sim','--output',str(output),
         '--request-fd',str(req_w),'--response-fd',str(res_r),'--kind',kind,'--config',args.config],
         env=env,pass_fds=(req_w,res_r))
@@ -356,6 +360,11 @@ def evaluate(args,logger):
     model,params=adapters(load_model(),cfg['training'],args.output)
     restore_checkpoint(Path(selected['path']),params);model.eval()
     adapted=simulation(model,manifest,args,'behavior',args.output/'adapted')
+    for seed in cfg['behavior_reset_seeds']:
+        name=f'E1__{seed}.npz'
+        with np.load(args.output/'native_unadapted/common_states'/name) as base,np.load(args.output/'adapted/common_states'/name) as tuned:
+            assert set(base.files)==set(tuned.files)
+            for key in base.files:np.testing.assert_array_equal(base[key],tuned[key])
     summary={}
     for name,results in [('native_unadapted',baseline),('adapted',adapted)]:
         summary[name]={g:dict(episodes=20,first_correct=sum(r['correct_first_grasp'] for r in results if r['case']['requested_goal_id']==g),

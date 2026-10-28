@@ -66,7 +66,7 @@ if isinstance(manifest,list):
 for name in ['SUCCESS.json','FAILED.json','E0_PASS.json','decision.json','budget.json',
              'trajectory_audit.json','closure_check.json','POSTPROCESS_COMPLETE.json',
              'AUTO_WORKFLOW.json','EXTRA_POSTPROCESS_COMPLETE.json','REPORT_REVIEW_COMPLETE.json',
-             'SFT_DATA_PASS.json','SFT_ALIGNMENT_PASS.json','SFT_PROFILE_PASS.json','SFT_TRAINING_COMPLETE.json','SFT_EVAL_COMPLETE.json','SFT_STAGE_FAILED.json']:
+             'SFT_DATA_PASS.json','SFT_REFERENCE_PASS.json','SFT_ALIGNMENT_PASS.json','SFT_PROFILE_PASS.json','PILOT_DECISION.json','SFT_TRAINING_COMPLETE.json','SFT_EVAL_COMPLETE.json','SFT_STAGE_FAILED.json']:
     value=read(name)
     if name=='E0_PASS.json' and value:
         value={k:value[k] for k in ['passed','short_branches','policy_steps','eval_updates','replay_insertions'] if k in value}

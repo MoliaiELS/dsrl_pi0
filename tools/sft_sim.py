@@ -45,6 +45,13 @@ def run(args):
     if args.kind=='alignment':
         cases=[c for c in read(root/'case_manifest.json') if c['phase']=='e1_dev' and c['policy']=='base']
         assert len(cases)==20
+        save_common=b.common
+        def common(case,env,obs):
+            record=save_common(case,env,obs)
+            with np.load(root/'common_states'/f"E1__{case['reset_seed']}.npz") as original:
+                b.check_snapshot(original,b.snapshot(env,obs))
+            return record
+        b.common=common
     else:
         from tools.research_core import sha
         cases=[]
