@@ -41,6 +41,12 @@ def static_reference(output):
                                           'observation/wrist_image':images['wrist_image'],'prompt':text})
             batched=jax.tree.map(lambda x:jnp.asarray(x)[None],inputs)
             observation=Observation.from_dict(batched)
+            if ni in [0,4,7] and ti==0:
+                from openpi.shared import nnx_utils
+                raw_model=policy._sample_actions.__wrapped__.__self__
+                prefix,pmask,par=nnx_utils.module_jit(raw_model.embed_prefix)(observation)
+                np.savez_compressed(output/f'prefix_{ni}.npz',prefix=np.asarray(prefix).astype(np.float32),
+                                    mask=np.asarray(pmask),ar_mask=np.asarray(par))
             for zi,z in enumerate(zs):
                 action=np.asarray(policy._sample_actions(observation,noise=jnp.asarray(z),num_steps=10))[0]
                 repeat=np.asarray(policy._sample_actions(observation,noise=jnp.asarray(z),num_steps=10))[0]
@@ -52,7 +58,7 @@ def static_reference(output):
                 rows.append(dict(file=name_out,observation=name,text=text,noise_index=zi,sha256=file_sha(output/name_out),
                                  internal_max=float(np.max(np.abs(action-repeat)))))
                 print('REFERENCE',len(rows),120,flush=True)
-    atomic(output/'manifest.json',dict(cases=rows,backend=str(jax.devices()),gradient_updates=0,
+    atomic(output/'manifest.json',dict(cases=rows,backend=str(jax.devices()),device_kind=jax.devices()[0].device_kind,gradient_updates=0,
            original_checkpoint=os.environ['DSRL_MODEL_PATH'],original_protocol_sha256=file_sha(root/('protocol.resolved.json' if (root/'protocol.resolved.json').exists() else 'resolved_protocol.json'))))
     import subprocess,sys
     atomic(output.parent/'run.json',dict(mode='sft-reference',learning=False,job_id=os.environ.get('SLURM_JOB_ID'),

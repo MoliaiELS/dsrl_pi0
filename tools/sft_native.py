@@ -134,6 +134,20 @@ def align(args,logger):
         subprocess.run(['bash','tools/sft_old_env.sh','tools.sft_reference','--output',str(references)],check=True,env=env)
     convert(logger)
     model=load_model().eval();rows=[]
+    prefix_rows=[]
+    with torch.inference_mode():
+        for ni in [0,4,7]:
+            source=references/f'prefix_{ni}.npz'
+            if not source.exists():continue
+            with np.load(source) as target,np.load(references/f'{ni:02d}-0-0.npz') as sample:
+                value,mask,ar=model.embed_prefix(observation(sample));value=value.float().cpu().numpy()
+                delta=value-target['prefix']
+                np.testing.assert_array_equal(mask.cpu().numpy(),target['mask'])
+                np.testing.assert_array_equal(ar.cpu().numpy(),target['ar_mask'])
+                prefix_rows.append(dict(observation=ni,rmse=float(np.sqrt(np.mean(delta**2))),maximum=float(np.abs(delta).max()),
+                    token_groups={name:dict(rmse=float(np.sqrt(np.mean(delta[:,a:b]**2))),maximum=float(np.abs(delta[:,a:b]).max()))
+                        for name,a,b in [('base',0,256),('wrist',256,512),('masked_right',512,768),('text',768,816)]}))
+    atomic(args.output/'prefix_alignment.json',prefix_rows)
     with torch.inference_mode():
         for row in read(references/'manifest.json')['cases']:
             assert file_sha(references/row['file'])==row['sha256'],'Corrupt original reference'
@@ -150,7 +164,8 @@ def align(args,logger):
     report=dict(cases=rows,passed=all(r['rmse']<=.01 and r['maximum']<=.1 and r['torch_internal_max']<=1e-5 and r['internal_max']<=1e-5 for r in rows),
                 engineering_alarms=dict(rmse=.01,maximum=.1),gradient_updates=0,closed_loop_passed=False)
     atomic(args.output/'static_alignment.json',report)
-    assert report['passed'],'Static conversion alignment alarm; inspect per-prompt/dimension errors before training'
+    # Alarms keep training closed, but the planned development-only closed loop
+    # still runs to diagnose whether numeric differences change behavior.
     manifest=read(Path(args.gate_dir)/'data_manifest.json')
     results=simulation(model,manifest,args,'alignment',args.output/'closed_loop')
     root=Path(os.environ['DSRL_DATA_ROOT'])/'runs/job-18584/cases'
@@ -165,7 +180,7 @@ def align(args,logger):
                 passed=first_agreement>=.9 and goal_agreement>=.9,physical_steps=8000,
                 gate='predeclared engineering agreement >=90% on each outcome; not a scientific equivalence test')
     atomic(args.output/'closed_loop_alignment.json',closed)
-    assert closed['passed'],'Closed-loop conversion differences require review before SFT'
+    assert report['passed'] and closed['passed'],'Static/closed-loop conversion differences require review before SFT'
     atomic(args.output/'data_manifest.json',manifest)
     atomic(args.output/'SFT_ALIGNMENT_PASS.json',dict(passed=True,static_cases=len(rows),closed_loop=closed,
            data_manifest_sha256=file_sha(args.output/'data_manifest.json'),gradient_updates=0))
@@ -310,6 +325,13 @@ def train(args,logger):
                 (loss/tr['global_batch_size']).backward();losses.append(float(loss.detach()))
             norm=torch.nn.utils.clip_grad_norm_(list(params.values()),tr['gradient_clip'],error_if_nonfinite=True)
             assert all(p.grad is None for p in model.parameters() if not p.requires_grad)
+            if args.mode=='profile':
+                gradients={n:(None if p.grad is None else float(p.grad.float().norm())) for n,p in params.items()}
+                active_experts={str(i):[n for n,v in gradients.items() if v is not None and v>0 and re.search(r'\.attn\.[qkvo]_proj\.'+str(i)+r'\.lora_',n)] for i in [0,1]}
+                assert all(active_experts.values()),'Missing actual VLM/action-expert adapter gradients'
+                atomic(args.output/f'gradient-coverage-{step+1:06d}.json',dict(gradients=gradients,active_experts=active_experts,
+                    unused_trainable_tensors=[n for n,v in gradients.items() if v is None],
+                    note='MHA functional projections may bypass nested Linear adapters; presence does not prove effective coverage'))
             optimizer.step();scheduler.step();step+=1
             logger.log({'phase':'sft_training','sft/train_loss':float(np.mean(losses)),'sft/gradient_norm':float(norm),
                 'sft/learning_rate':used_lr,'sft/update_seconds':time.monotonic()-update_started,
@@ -332,6 +354,7 @@ def train(args,logger):
         delta=max(float((p.detach().cpu()-first_params[n]).abs().max()) for n,p in params.items())
         assert delta>0,'No adapter parameter changed'
         if args.mode=='profile':
+            atomic(args.output/'adapter_deltas.json',{n:float((p.detach().cpu()-first_params[n]).abs().max()) for n,p in params.items()})
             model.eval();sample=data.sample(data.training['A'][0],0);arrays=packed(sample)
             arrays['noise']=np.random.default_rng(99026).normal(size=(1,50,32)).astype(np.float32)
             with torch.inference_mode():
