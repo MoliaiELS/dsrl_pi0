@@ -146,6 +146,19 @@ def align(args,logger):
         subprocess.run(['bash','tools/sft_old_env.sh','tools.sft_reference','--output',str(references)],check=True,env=env)
     convert(logger)
     model=load_model().eval();rows=[]
+    reuse=Path(args.restore) if args.restore else None
+    if reuse:
+        previous=read(reuse/'static_alignment.json')
+        assert not previous['passed'],'This continuation only reuses a still-failed static report, never creates a parity pass'
+        assert read(reuse/'run.json')['config_sha256']==file_sha(args.config)
+        assert file_sha(reuse/'native-requirements.txt')==file_sha(Path(os.environ['DSRL_SFT_PREFIX'])/'requirements-resolved.txt')
+        with torch.inference_mode():
+            for name in ['00-0-0.npz','04-0-0.npz','07-0-0.npz']:
+                with np.load(references/name) as sample,np.load(reuse/('torch-'+name)) as expected:
+                    value=model.sample_actions(observation(sample),num_steps=10,noise=torch.as_tensor(sample['noise'],device='cuda')[None]).float().cpu().numpy()[0]
+                    np.testing.assert_allclose(value,expected['actions'],atol=1e-5,rtol=0)
+        rows=previous['cases']
+        logger.log({'phase':'continued_failed_static_diagnostic','sft/static_source':str(reuse),'sft/alignment_cases':len(rows)},0)
     prefix_rows=[]
     with torch.inference_mode():
         for ni in [0,4,7]:
@@ -161,7 +174,7 @@ def align(args,logger):
                         for name,a,b in [('base',0,256),('wrist',256,512),('masked_right',512,768),('text',768,816)]}))
     atomic(args.output/'prefix_alignment.json',prefix_rows)
     with torch.inference_mode():
-        for row in read(references/'manifest.json')['cases']:
+        for row in ([] if reuse else read(references/'manifest.json')['cases']):
             assert file_sha(references/row['file'])==row['sha256'],'Corrupt original reference'
             with np.load(references/row['file']) as sample:
                 obs=observation(sample);noise=torch.as_tensor(sample['noise'],device='cuda')[None]
@@ -175,10 +188,13 @@ def align(args,logger):
     assert len(rows)==120
     report=dict(cases=rows,passed=all(r['rmse']<=.01 and r['maximum']<=.1 and r['torch_internal_max']<=1e-5 and r['internal_max']<=1e-5 for r in rows),
                 engineering_alarms=dict(rmse=.01,maximum=.1),gradient_updates=0,closed_loop_passed=False)
+    if reuse:report.update(reused_from=str(reuse),source_report_sha256=file_sha(reuse/'static_alignment.json'),
+        reuse_scope='failed static evidence only; three unchanged-output probes passed; continue simulator diagnostics, training remains closed')
     atomic(args.output/'static_alignment.json',report)
     # Alarms keep training closed, but the planned development-only closed loop
     # still runs to diagnose whether numeric differences change behavior.
     manifest=read(Path(args.gate_dir)/'data_manifest.json')
+    atomic(args.output/'data_manifest.json',manifest)
     results=simulation(model,manifest,args,'alignment',args.output/'closed_loop',logger)
     root=Path(os.environ['DSRL_DATA_ROOT'])/'runs/job-18584/cases'
     pairs=[]
