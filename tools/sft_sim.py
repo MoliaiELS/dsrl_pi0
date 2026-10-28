@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from tools.research_core import Budget, atomic, read
+from tools.research_core import Budget, atomic, read, file_sha
 
 
 def run(args):
@@ -45,6 +45,19 @@ def run(args):
     if args.kind=='alignment':
         cases=[c for c in read(root/'case_manifest.json') if c['phase']=='e1_dev' and c['policy']=='base']
         assert len(cases)==20
+        # Replay the actual saved z arrays, rather than assuming CPU/GPU JAX
+        # random.normal produces byte-identical floating-point values.
+        sequences={}
+        for case in cases:
+            original=read(root/'cases'/(case['id']+'.json'))
+            artifact=next(k for k in original['artifact_hashes'] if k.endswith('/arrays.npz'))
+            assert file_sha(root/artifact)==original['artifact_hashes'][artifact]
+            with np.load(root/artifact) as arrays:
+                key=(case['reset_seed'],case['sampling_seed'])
+                value=(arrays['noise_sequence'].copy(),arrays['sampling_keys'].copy())
+                if key in sequences:np.testing.assert_array_equal(sequences[key][0],value[0])
+                sequences[key]=value
+        b.noise=lambda obs,policy,reset,sampling,query:tuple(v[query] for v in sequences[(reset,sampling)])
         save_common=b.common
         def common(case,env,obs):
             record=save_common(case,env,obs)
