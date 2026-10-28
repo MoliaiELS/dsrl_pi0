@@ -1,0 +1,328 @@
+{
+  "generated_at": "2026-10-28 13:28 CST",
+  "data_cutoff": "2026-10-28 13:25:31 CST",
+  "source_policy": "Only cached local files read; no SSH, GPU, simulator or training environment used by this builder.",
+  "sources": {
+    "tmp/experiment-report-20261021/facts.json": {
+      "sha256": "28b384b0e48834c55f9e159df3a78026cdcfbc15073b1c1418f5ec801e46dd2e",
+      "bytes": 207340
+    },
+    "tmp/experiment-report-20261021/data_tables/baseline_final_summary.csv": {
+      "sha256": "ebb388d9fa33e396202d2de2251ee0e8529673a608939f4c000b70acc81dbd56",
+      "bytes": 164
+    },
+    "tmp/experiment-report-20261021/data_tables/C1_development_360_cases.csv": {
+      "sha256": "f7f0f9dcd20999d632c4be0a6cd46590502c97f1e36b167e7ee3c69dba5726a4",
+      "bytes": 336652
+    },
+    "tmp/experiment-report-20261021/data_tables/confirmation_300_cases.csv": {
+      "sha256": "6ab44b00f0133877a435d877ae5f66d42d7504e1cf6097488a9bfaa5a3a215ea",
+      "bytes": 239734
+    },
+    "tmp/experiment-report-20261021/data_tables/C2_v6_96_cases.csv": {
+      "sha256": "804face0cf31e040a16c17e7820fa48207f7fa0d221d06277b8501b33ae76fed",
+      "bytes": 45332
+    },
+    "tmp/language-stage-20261027/job-18584/summary_by_condition.csv": {
+      "sha256": "bd7a617f372109bdb2110c5a74c9749d94cd7247ea64fa804df7e897b6bef57b",
+      "bytes": 3224
+    },
+    "tmp/language-stage-20261027/job-18584/paired_cluster_statistics.json": {
+      "sha256": "cee94433300ede9ac88a2257adca81fdcdf96eb0190137e6035bf5a7623f44b9",
+      "bytes": 11651
+    },
+    "tmp/language-stage-20261027/job-18584/resolved_protocol.json": {
+      "sha256": "715066dcfd289a2a201db811976981fe523713a757bc19c2063fdd99a1b4c560",
+      "bytes": 40023
+    },
+    "tmp/language-stage-20261027/job-18584/calibration.json": {
+      "sha256": "230564bce51f3feaa1f967503564cb3b9551248ada335a3c2c086a7ef657610d",
+      "bytes": 903
+    },
+    "tmp/language-stage-20261027/job-18584/trajectory_audit.json": {
+      "sha256": "d54d6572d4082b6f69e7d4a328eb42f63c525dc9982875fd34221bdaacc86b76",
+      "bytes": 519
+    },
+    "tmp/language-stage-20261027/job-18584/closure_check.json": {
+      "sha256": "65be832cf253fbca4deec35c0a3e66e0d4f3040c3f98eaa71267e6c1553d2f74",
+      "bytes": 517
+    },
+    "tmp/language-stage-20261027/job-18584/allocation_accounting.json": {
+      "sha256": "0b6b7866fb73330d01c70795675f4d1f49eee3eb6bdb011f4cb6d7c4fddc1b33",
+      "bytes": 219
+    },
+    "tmp/language-stage-20261027/report_snapshot_20261028/job-18655/static_alignment.json": {
+      "sha256": "8a89f0de107a92e0864d4b3ec037fa1bfcf7f3470926972d4a8794d82a46540a",
+      "bytes": 130709
+    },
+    "tmp/language-stage-20261027/report_snapshot_20261028/job-18655/closed_loop/results.json": {
+      "sha256": "794d34e3a3068d81ade930bbbef158c90f87c57523cc3aa4030486e20d6d82e3",
+      "bytes": 38340
+    },
+    "tmp/language-stage-20261027/report_snapshot_20261028/job-18658/latest.json": {
+      "sha256": "2b582ea557df2caa8b415cc6298c2a76ea4a646a189f3fde93814a5ddb64632d",
+      "bytes": 338
+    },
+    "tmp/language-stage-20261027/report_snapshot_20261028/job-18658/run.json": {
+      "sha256": "197a96fa49c6c9b15686d50946faaf6767af6e04a3a41e3522d5c34551867001",
+      "bytes": 816
+    },
+    "configs/sft_a_v1.json": {
+      "sha256": "def7d52e3de539f73609d7bdf0850924efa904b162e61ef59510a635bb161753",
+      "bytes": 2292
+    },
+    "configs/sft_a_migration_review.json": {
+      "sha256": "f053754a50957638ec0611a6a0a08dd5a89f7afcb58b8ef86fd0dbe43ec21015",
+      "bytes": 2815
+    },
+    "tmp/language-stage-20261027/report_snapshot_20261028/job-18657/SFT_PROFILE_PASS.json": {
+      "sha256": "7b4819c77ee1a5d70670010d39630419554ba2781d5645215df5bb6c5a43f402",
+      "bytes": 292
+    },
+    "tmp/language-stage-20261027/report_snapshot_20261028/job-18657/lora_coverage.json": {
+      "sha256": "1619ce83e0e1fa9236d9a4ba6c4e3eb8b3a78e4316f53c1d3d6a17392fd63768",
+      "bytes": 62278
+    },
+    "tmp/language-stage-20261027/report_snapshot_20261028/job-18657/gradient-coverage-000002.json": {
+      "sha256": "bc6e6636a07491f822fa10b252b645cc641a54bb10ad3b24c89b36a3fcc8972a",
+      "bytes": 40397
+    },
+    "tmp/language-stage-20261027/report_snapshot_20261028/research/DEMONSTRATION_ORDER_AUDIT.json": {
+      "sha256": "f157cb37b657d75daa0fd03ea5ad9b43aaa1053870146ac1ac4c8647e9576103",
+      "bytes": 17164
+    },
+    "tmp/language-stage-20261027/report_snapshot_20261028/research/JAX_CROSS_GPU_NUMERICS.json": {
+      "sha256": "0a6bdf5a608c6cef9876dbb95d9d6d1f92107d5cce1647a67b284c6f033455dc",
+      "bytes": 113350
+    },
+    "tmp/language-stage-20261027/report_snapshot_20261028/workflow/workflow.json": {
+      "sha256": "2daea71cd5dff454b82d26e4d130a6f106635ba9b58aa2feedf47d9a2d4ec450",
+      "bytes": 939
+    },
+    "tmp/language-stage-20261027/report_snapshot_20261028/job-18658/metrics.jsonl": {
+      "sha256": "e08f3ff1a3e0f232a999affbb28fc85ed23b83d6d5de7128cc299f4b20722508",
+      "bytes": 85084
+    },
+    "tmp/language-stage-20261027/report_snapshot_20261028/job-18655/run.json": {
+      "sha256": "4d752d81eeb4ac3b9ca805dde61b6bcf13d8b13439ad9d0deecf948117e6f7f9",
+      "bytes": 769
+    },
+    "tmp/language-stage-20261027/report_snapshot_20261028/job-18655/closed_loop_alignment.json": {
+      "sha256": "c8cf96e87de4137676372965600aa8f924633d3444f2f338053c5aeb47029103",
+      "bytes": 4281
+    },
+    "tmp/language-stage-20261027/report_snapshot_20261028/job-18655/closed_loop/SIMULATION_COMPLETE.json": {
+      "sha256": "ad17a7dad7a9667a80c848d826c047a3e25fbc4fbcf52056650a61e57d25e53b",
+      "bytes": 51
+    },
+    "tmp/language-stage-20261027/report_snapshot_20261028/job-18655/closed_loop/budget.json": {
+      "sha256": "46ff1a6f137a725954b9239919b61164a8f87b917e4f983a6e349ff270b67f79",
+      "bytes": 301
+    },
+    "tmp/language-stage-20261027/report_snapshot_20261028/job-18655/prefix_alignment.json": {
+      "sha256": "e651abaaadbcbf83370aff7744a90f9c542964abc0714e9004fdcb123fc8180f",
+      "bytes": 849
+    },
+    "tmp/language-stage-20261027/report_snapshot_20261028/job-18655/numerical_compatibility.json": {
+      "sha256": "fdb516eab41eba00c51609460d2442ed089ba8e6fea381d694236e96c506e5f8",
+      "bytes": 511
+    },
+    "tmp/language-stage-20261027/job-18643/data_manifest.json": {
+      "sha256": "263877f24814198894fcfffc53142b00e1bae852a663b30dc86263da56aa6705",
+      "bytes": 23816
+    },
+    "tmp/language-stage-20261027/sft_a_environment/NATIVE_ENV_READY.json": {
+      "sha256": "66d0050e229d840860c9795424cb640f575388afa3a36d29dcabf1f5378b58d5",
+      "bytes": 369
+    },
+    "tmp/language-stage-20261027/report_snapshot_20261028/job-18657/adapter_deltas.json": {
+      "sha256": "a2b2ca9ebf8c3533ca6a0c8b01ce2eb42b3a04d2ece1a9e49f535bb6aa333dca",
+      "bytes": 29939
+    },
+    "tmp/language-stage-20261027/report_snapshot_20261028/job-18657/checkpoint-000000.json": {
+      "sha256": "19d188e942171c2d68755ddae1335e15f863fbfdd0ef4dffc47920b70010d470",
+      "bytes": 377
+    },
+    "tmp/language-stage-20261027/report_snapshot_20261028/job-18657/checkpoint-000002.json": {
+      "sha256": "6eff13cb737a0a05bf72f78cb447675f1460587f3273bf728f2178bce07a965d",
+      "bytes": 378
+    },
+    "tmp/language-stage-20261027/report_snapshot_20261028/workflow/launch.json": {
+      "sha256": "ed8ac433574c28f408dfce30eeaab9cc4c7ee6b661adee63a1352ac0751bc47c",
+      "bytes": 674
+    },
+    "tmp/experiment-report-20261021/figures/01_task_scene.png": {
+      "sha256": "e7c8a00f375477143dbac89aaf44c38b74ae4e6eecd3005175d226c96e913dc7",
+      "bytes": 274337
+    },
+    "tmp/experiment-report-20261021/figures/02_algorithm.png": {
+      "sha256": "4dd41d3df64544405612afa412c15fc735eb0c7ed7007bb68add6a7f8c02c171",
+      "bytes": 147793
+    },
+    "tmp/experiment-report-20261021/figures/03_learning_curves.png": {
+      "sha256": "2539eea72009da36aa7ee26dc945f8ecc5be77f9a89667b144461988c616e091",
+      "bytes": 160892
+    },
+    "tmp/experiment-report-20261021/figures/06_prompt_schedule.png": {
+      "sha256": "6f156f2d81a8d7a6f24c2d034dd80cce1c01ec9ba67c8d82a2bfe2bd352c76d4",
+      "bytes": 117352
+    },
+    "tmp/experiment-report-20261021/figures/07_probe_matrix.png": {
+      "sha256": "dd30932c3272714095f3ca0c7bfec78d88fd6fe4f2e6533b8c245b1fb1b08ba1",
+      "bytes": 224603
+    },
+    "tmp/experiment-report-20261021/figures/08_c1_common_states.png": {
+      "sha256": "557385d2ab2fd80dcd7c2726f62a9abc91231601e07b7359b4a778756444ab22",
+      "bytes": 303655
+    },
+    "tmp/experiment-report-20261021/figures/09_c1_results.png": {
+      "sha256": "ef7e62990abee32ad8a9d58860abbc722f48038ca7bec5cb3545a5d0a65bb6e6",
+      "bytes": 152210
+    },
+    "tmp/experiment-report-20261021/figures/13_c2_common_states.png": {
+      "sha256": "e5068480c10bb04e7ad8d9c41ed296bcbc91a2966e1e48cca0f232647ca7102b",
+      "bytes": 1269935
+    },
+    "tmp/experiment-report-20261021/figures/17_trigger_and_budget.png": {
+      "sha256": "4dd955b0d8ac1e93fb0e8a4d3cf93527cefb6ec3f94c32e4a3c50f3834c133c1",
+      "bytes": 111803
+    },
+    "tmp/language-stage-20261027/job-18584/figures/e1_confusion.png": {
+      "sha256": "29e16a2a30f8c9dd11a5e7d7d088ef705365c174d09fd3155d5e37647b98ca64",
+      "bytes": 52977
+    },
+    "tmp/language-stage-20261027/job-18584/figures/e1_auxiliary_behavior.png": {
+      "sha256": "e709292fa42ed23504771e60042ed0c392caea505148a7b27e0ae50f0be3402d",
+      "bytes": 64782
+    },
+    "tmp/language-stage-20261027/job-18584/figures/e2_stages.png": {
+      "sha256": "d15be66345561fe2b12f91a85fcd4873bd1b9f1e83aeb0c8df5a5c03fa8f8de2",
+      "bytes": 38569
+    },
+    "tmp/language-stage-20261027/job-18584/figures/E2_4000_contact_sheet.png": {
+      "sha256": "d500a34e58326f3e09efb461d8fb9b424b10c7c73030e44d9de51f5daf8df0f0",
+      "bytes": 996849
+    },
+    "tmp/experiment-report-20261021/videos/V02_baseline_four_methods.mp4": {
+      "sha256": "e7e458bd554262b9da17892d28c1aa28afda2ca2ac435c15998c685e1cf6c9d8",
+      "bytes": 398553
+    },
+    "tmp/experiment-report-20261021/videos/V05_normal_probe_instruction.mp4": {
+      "sha256": "665aa5967259bf2803c504ec43c10ae25571fdbf5108b30d00b4eba851752e43",
+      "bytes": 140098
+    },
+    "tmp/experiment-report-20261021/videos/V06_c1_noise_and_conditions.mp4": {
+      "sha256": "5b7027a903558469ddadc31034fbb90889d3b3f2115c9b4fcbc6d779a73f2514",
+      "bytes": 2522995
+    },
+    "tmp/experiment-report-20261021/videos/V07_c1_four_instructions.mp4": {
+      "sha256": "76bf1e84daefedc97af927b998eb61f2e61df6b565a12a26ac04dffb19457d86",
+      "bytes": 1226335
+    },
+    "tmp/experiment-report-20261021/videos/V09_confirmation_gain_and_regression.mp4": {
+      "sha256": "8792a4dc5c6ed687a48fef06fe41386fa554db1d22bfc9d01f327e31a3145904",
+      "bytes": 1618036
+    },
+    "tmp/experiment-report-20261021/videos/V10_c2_held_vs_drop.mp4": {
+      "sha256": "72623d5bd72709c03c3a366c3898e0bc0da184df0c7061700ff8090837e260c6",
+      "bytes": 1025355
+    },
+    "tmp/experiment-report-20261021/videos/V12_c2_random_failure_and_recovery.mp4": {
+      "sha256": "64053654f1cb9a8c810b31100fdeee42bbe93ee6a62bda0118642bef7731db7d",
+      "bytes": 779258
+    },
+    "tmp/language-stage-20261027/job-18584/media/E1_dev3000_all_policies.mp4": {
+      "sha256": "29c23489273afca6e676e90d948c5d786ae612e2dcb9569ce30962dcdc5224c5",
+      "bytes": 4167858
+    },
+    "tmp/language-stage-20261027/job-18584/media/E2_dev4000_all_conditions.mp4": {
+      "sha256": "160099ec75a68c08e33c8b80773ea2376866596d827ad268378260fdeaa7a5d3",
+      "bytes": 3044281
+    },
+    "tmp/language-stage-20261027/job-18643/A_image_data_vs_render.png": {
+      "sha256": "4bbc5cc603cc9c61653e213b8ea67aa1473aab13780bcd3d00e20260b1a43264",
+      "bytes": 20993
+    },
+    "tmp/language-stage-20261027/job-18643/B_wrist_data_vs_render.png": {
+      "sha256": "d913948e1ce3ee9c2231f0f5eb69668fa99a42997330ac0240742b03f208ca14",
+      "bytes": 27883
+    },
+    "tmp/language-stage-20261027/job-18584/episodes.jsonl": {
+      "sha256": "c057a2257c777223edeee9c527b12f33694a1afef89be043b7dbcbc85bada6d7",
+      "bytes": 2045415
+    },
+    "docs/protocols/dsrl_vla_protocol_20261027/EXPERIMENT_SPEC.md": {
+      "sha256": "6dd33c06b57815f3505ad917b115951958191029e5b4bbcee439b0e0ac74ade2",
+      "bytes": 56557
+    },
+    "docs/protocols/dsrl_vla_protocol_20261027/SFT_A_EXECUTION.md": {
+      "sha256": "cf5097b5b88721f8d65ca72d54f82b623162162dbb825d8b6c17cfc4adf09bcb",
+      "bytes": 8254
+    },
+    "docs/reports/20261028/report_body.html": {
+      "sha256": "90874d2b1d33970c07b8c494371a98de92eecb8125af09642e206efae1d2bc53",
+      "bytes": 49759
+    },
+    "docs/reports/20261028/report.css": {
+      "sha256": "c085ac93b7cf53ce32fe4d0c8b7ef330ca5ad5e7f17d13313d1607bbf3c0feb6",
+      "bytes": 4246
+    }
+  },
+  "checks": [
+    "migration locked hash: run.json",
+    "migration locked hash: static_alignment.json",
+    "migration locked hash: closed_loop_alignment.json",
+    "migration locked hash: closed_loop/SIMULATION_COMPLETE.json",
+    "migration locked hash: closed_loop/budget.json",
+    "migration locked hash: closed_loop/results.json",
+    "migration locked hash: prefix_alignment.json",
+    "migration locked hash: numerical_compatibility.json",
+    "baseline successes are 35/99/100/98 out of 100",
+    "C1 development has 360 branches and 10 reset clusters",
+    "C1 confirmation has 300 branches and 10 reset clusters",
+    "C2 contains 96 branches and four triggered references",
+    "static migration has 120 cases and failed original gate",
+    "native closed-loop contains 20 complete 400-step cases",
+    "SFT runtime is explicitly within-native",
+    "SFT split is 40/10 complete trajectories per goal",
+    "real profile updated adapters and restored exactly in a fresh process",
+    "LoRA parameter/tensor count and actual unused paths",
+    "genuine demonstrations first grasp the requested object for A/B",
+    "cross-GPU JAX sensitivity is not called framework equivalence",
+    "automatic evaluation workflow is waiting for this training, not duplicated",
+    "Base: 30 complete original/regrasp confirmation pairs",
+    "有界随机: 30 complete original/regrasp confirmation pairs",
+    "DSRL s0: 30 complete original/regrasp confirmation pairs",
+    "DSRL s1: 30 complete original/regrasp confirmation pairs",
+    "DSRL s2: 30 complete original/regrasp confirmation pairs",
+    "confirmation counts match archived run summaries",
+    "C2 original/base: four actual dropped states",
+    "C2 original/bounded_random: four actual dropped states",
+    "C2 original/dsrl: four actual dropped states",
+    "C2 regrasp/base: four actual dropped states",
+    "C2 regrasp/bounded_random: four actual dropped states",
+    "C2 regrasp/dsrl: four actual dropped states",
+    "C2 paraphrase/base: four actual dropped states",
+    "C2 paraphrase/bounded_random: four actual dropped states",
+    "C2 paraphrase/dsrl: four actual dropped states",
+    "C2 pick/base: four actual dropped states",
+    "C2 pick/bounded_random: four actual dropped states",
+    "C2 pick/dsrl: four actual dropped states",
+    "C2 only failure is original/bounded_random",
+    "base E1 has 80 valid trials per goal",
+    "bounded_random E1 has 80 valid trials per goal",
+    "dsrl_s0 E1 has 80 valid trials per goal",
+    "dsrl_s1 E1 has 80 valid trials per goal",
+    "dsrl_s2 E1 has 80 valid trials per goal",
+    "three DSRL controllers never first-grasp B in E1 confirmation",
+    "pooled DSRL B-ever 56/240 but selective-first 7/240",
+    "migration closed-loop agreement remains 60% grasp / 70% goal-vector",
+    "static alarm count is 23 of 120",
+    "training curve uses actual saved updates through the snapshot",
+    "all report template slots resolved",
+    "all report local references and section anchors exist"
+  ],
+  "report_references": 65,
+  "embedded_videos": 9,
+  "scope": "completed original-JAX studies + failed migration diagnostic + ongoing within-native SFT snapshot"
+}

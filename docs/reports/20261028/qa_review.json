@@ -1,0 +1,48 @@
+{
+  "passed": true,
+  "reviewed_at": "2026-10-28T13:30:21.416772+08:00",
+  "layout_cases": [
+    {
+      "name": "cover",
+      "viewport": 1422,
+      "no_overflow": true,
+      "missing_images": []
+    },
+    {
+      "name": "e1",
+      "viewport": 1422,
+      "no_overflow": true,
+      "missing_images": []
+    },
+    {
+      "name": "sft",
+      "viewport": 1422,
+      "no_overflow": true,
+      "missing_images": []
+    },
+    {
+      "name": "plan",
+      "viewport": 1422,
+      "no_overflow": true,
+      "missing_images": []
+    },
+    {
+      "name": "mobile",
+      "viewport": 504,
+      "no_overflow": true,
+      "missing_images": []
+    }
+  ],
+  "manual_visual_review": [
+    "cover",
+    "E1 section and table",
+    "SFT section and demonstration images",
+    "baseline endpoints",
+    "paired confirmation",
+    "E1 goal fidelity",
+    "migration diagnostics",
+    "SFT loss and learning rate"
+  ],
+  "render_method": "Local Chrome headless with --disable-gpu; section excerpts keep the report CSS and original content.",
+  "runtime_changes": false
+}

@@ -1,0 +1,297 @@
+<main>
+<header>
+  <div class="kicker">HKUST（广州）FYP · 本地实验证据报告</div>
+  <h1>DSRL π₀ / LIBERO：<br>已完成实验、证据边界与下一步方案</h1>
+  <p class="lead">单任务噪声策略已稳定提升成功率；双目标与组合任务诊断说明，下一步应先验证目标接口与技能，再决定是否投入多任务 RL 或阶段恢复。</p>
+  <p class="meta">整理时间：@@GENERATED_TIME@@。历史数据覆盖基线、C1/C2探针及10月27日first_batch；SFT运行快照截止 <strong>@@SNAPSHOT_TIME@@</strong>。本文没有启动新仿真、推理或训练。</p>
+</header>
+
+<div class="banner">
+  <strong>当前最有依据的结论</strong>：在LIBERO-90的一个奶油奶酪入托盘任务上，三份DSRL控制器独立终评为99/100、100/100、98/100，Base为35/100。但控制器只在目标A上训练、没有语言输入；换成目标B指令后，三份控制器均为0/80正确首抓B。单任务优化成立，双目标指令通用性尚不成立。
+</div>
+<div class="grid">
+  <div class="card"><strong>99% / 100% / 98%</strong><span>三个Noise RL训练seed的独立终评<br>一个任务；每份控制器100回合</span></div>
+  <div class="card"><strong>0 / 240</strong><span>E1确认中三份控制器的B正确首抓<br>40个reset成簇，不能当作240独立初态</span></div>
+  <div class="card"><strong>0 / 10 × 6组</strong><span>E2两个任务 × 三种指令条件<br>完整goal与第一阶段均未完成</span></div>
+</div>
+
+<nav aria-label="目录"><ol>
+  <li><a href="#scope">实验范围与证据等级</a></li>
+  <li><a href="#system">任务、组件与共同配置</a></li>
+  <li><a href="#baseline">单任务DSRL基线</a></li>
+  <li><a href="#prompts">指令重构与正常状态探针</a></li>
+  <li><a href="#c1">C1开发与独立确认</a></li>
+  <li><a href="#c2">C2物理掉落恢复</a></li>
+  <li><a href="#e1">E1双目标：选择与执行</a></li>
+  <li><a href="#e2">E2组合任务与阶段诊断</a></li>
+  <li><a href="#migration">跨框架迁移的限制</a></li>
+  <li><a href="#sft">进行中的SFT-A</a></li>
+  <li><a href="#evidence">目前足以支持什么</a></li>
+  <li><a href="#plan">下一步实验与研究方案</a></li>
+  <li><a href="#repro">复现索引、来源与核验</a></li>
+</ol></nav>
+
+<section id="scope">
+<h2>1. 实验范围与证据等级</h2>
+<p>本项目当前在仿真中研究：冻结VLA时，语言干预和潜噪声RL分别能改变什么，能否改善受扰后的执行与恢复。已完成结果集中于LIBERO；ALOHA Sim未纳入以下数据。语言、精度、恢复之间的分工仍是待检验问题，不能从设计意图直接当作结论。</p>
+<div class="table-wrap"><table>
+<thead><tr><th>实验</th><th>主要问题与规模</th><th>实际状态</th><th>可比范围</th></tr></thead><tbody>
+<tr><td>单任务基线</td><td>Base 100；DSRL三个训练seed，各100独立终评</td><td><span class="badge">已完成</span>三个500k-update控制器</td><td>原JAX π₀，同一任务；Base只有一组终评</td></tr>
+<tr><td>正常状态探针</td><td>60个短分支，40步文本/噪声响应</td><td><span class="badge">已完成</span>接口检查</td><td>不作完整任务成功率比较</td></tr>
+<tr><td>C0/C1开发</td><td>10 reset × 3状态 × 4文本 × 3噪声＝360</td><td><span class="badge">已完成</span>探索性开发</td><td>原A目标不变；同状态配对</td></tr>
+<tr><td>C1独立确认</td><td>10新reset × 3状态 × 2文本 × 5策略＝300</td><td><span class="badge">数据有效</span>父job后续C2失败</td><td>以10个reset为cluster；三份固定控制器</td></tr>
+<tr><td>C2 v6</td><td>5参考中4触发；4 × 2状态 × 4文本 × 3噪声＝96</td><td><span class="badge">已完成</span>小规模开发试点</td><td>已触发参考的条件恢复；未触发另报</td></tr>
+<tr><td>E1/E2 first_batch</td><td>100开发＋30辅助＋60阶段开发＋800双目标确认＝990</td><td><span class="badge">已完成</span>990条轨迹闭环核验</td><td>冻结原VLA及三个旧SAC；无新梯度更新</td></tr>
+<tr><td>native迁移诊断</td><td>120静态输入组＋20完整开发回合</td><td><span class="badge failed">未通过数值/行为等价门禁</span></td><td>保留失败证据；不跨框架作单变量归因</td></tr>
+<tr><td>SFT-A</td><td>真实A/B各50轨迹；pilot500，条件上限3000</td><td><span class="badge pending">运行中</span>最新本地记录@@TRAIN_UPDATES@@更新</td><td>只比较同一native底座未适配/适配两臂；效果待终评</td></tr>
+</tbody></table></div>
+<p>下文区分三类证据：<strong>工程验证</strong>证明模型能调用、参数能更新、状态能恢复；<strong>开发结果</strong>用于诊断和提出假设；<strong>锁定后的确认</strong>才用于检验选定干预是否在新reset上维持。代码执行成功、GPU分配成功、短测成功都不等同于算法效果复现。</p>
+</section>
+
+<section id="system">
+<h2>2. 任务、组件与共同配置</h2>
+<h3>2.1 基线究竟完成什么任务</h3>
+<p>LIBERO-90任务ID <strong>57</strong>：<code>LIVING_ROOM_SCENE3_pick_up_the_cream_cheese_and_put_it_in_the_tray</code>。机器人需要抓取奶油奶酪，并将其放进木托盘。原目标谓词为 <code>In(cream_cheese_1, wooden_tray_1_contain_region)</code>，不能以夹到物体或抬起来替代完成。</p>
+<figure><img src="figures/01_task_scene.png" alt="基线真实仿真场景、双相机和目标物体"><figcaption>图1｜基线任务的真实仿真场景。后续E1在同一物理场景中分别要求A＝奶油奶酪、B＝黄油入托盘；切换的是请求目标与计分谓词。</figcaption></figure>
+<h3>2.2 哪个组件是DSRL的主要算法</h3>
+<p>DSRL学习的是<strong>扩散/流动作生成的初始潜噪声策略</strong>。本实现的PixelSAC从64×64图像及8维本体状态生成32维有界向量，将其沿50个时间位置重复后送入冻结π₀。π₀同时读取两路224×224图像、本体和文本，预测50×7动作；每次执行前20步后重新观测。</p>
+<figure><img src="figures/02_algorithm.png" alt="DSRL SAC噪声控制器、冻结VLA、仿真和奖励的关系"><figcaption>图2｜被RL更新的是PixelSAC及其critic/温度等状态；原π₀的视觉语言与动作参数在历史Noise RL实验中冻结。32维潜向量不是直接的7维机器人动作。</figcaption></figure>
+<div class="table-wrap"><table><thead><tr><th>组件/入口</th><th>作用</th><th>与研究结论有关的边界</th></tr></thead><tbody>
+<tr><td><code>examples/train_sim.py</code></td><td>构造仿真、π₀、SAC与buffer；执行交互、更新、周期评估和保存</td><td>500k max_steps是梯度更新计数，真实环境步另计</td></tr>
+<tr><td><code>jaxrl2/agents/pixel_sac/</code></td><td>主要Noise RL算法：像素编码器、actor、critic集成、熵正则</td><td>原actor没有语言输入；单目标奖励可能塑造对象偏好</td></tr>
+<tr><td><code>openpi/</code></td><td>冻结π₀模型、采样与观测/动作变换</td><td>沿用作者修改的锁定子模块，未换成π₀.₅</td></tr>
+<tr><td><code>LIBERO/</code></td><td>MuJoCo场景、任务BDDL、观测和成功谓词</td><td>MuJoCo真值用于扰动/计分/审计，不给普通学习控制器</td></tr>
+<tr><td><code>tools/control_probe.py</code>、outcome/research工具</td><td>共同状态、固定文本×噪声枚举、事件审计与配对统计</td><td>人工指令干预，尚无Instruction RL或Joint RL训练结果</td></tr>
+<tr><td><code>tools/sft_*.py</code></td><td>新批次的数据审计、转换、native LoRA、恢复及自动终评</td><td>新的同native底座内部实验，与原JAX结果分开解释</td></tr>
+</tbody></table></div>
+<p>原模型来源为 <code>s3://openpi-assets/checkpoints/pi0_libero</code>，远端保存于 <code>checkpoints/pi0_libero</code>；三份已训练SAC来自job18046/18103/18123的500000-update checkpoint。它们是本项目产物。本文没有将官方π₀权重称为已训练好的DSRL权重。</p>
+<p class="small">共同仿真控制频率20Hz。历史原始任务horizon400步，成功即结束；新E1固定运行400步并继续记录两个目标，E2为600步且官方完整goal优先结束。三种终止协议不合并计算成功率。</p>
+</section>
+
+<section id="baseline">
+<h2>3. 单任务DSRL基线：完成了稳定的局部复现</h2>
+<p><span class="badge">已验证</span>最初短测18044确认模型加载、真实梯度更新、参数变化、冻结VLA和checkpoint恢复；随后三次独立Noise RL训练及各100回合独立终评均完成。下表是终评，未用训练过程中最好的10回合数字替代。</p>
+@@BASELINE_TABLE@@
+<figure><img src="figures/baseline_endpoint.png" alt="Base 35/100，DSRL三个seed 99/100、100/100、98/100"><figcaption>图3｜三个seed平均99%，seed间样本标准差1个百分点。误差线只描述每份控制器100回合的二项抽样不确定性；不代表有100个训练seed，也未校正Base与DSRL的非配对初态。</figcaption></figure>
+<figure><video controls preload="none" src="media/V02_baseline_four_methods.mp4" aria-label="Base与三份DSRL基线真实仿真录像"></video><figcaption>视频1｜Base及三个DSRL控制器的任务执行说明录像，20秒。各面板不是相同初始状态配对；完整成功率来自上表全部终评，不能从精选录像推断。</figcaption></figure>
+<h3>3.1 训练过程与实际预算</h3>
+<p>SAC先收集超过500个chunk，再以每次交互最多20次梯度更新推进；batch256，actor LR1e-4，critic/温度LR3e-4，10个Q网络，隐藏层128×3，target τ＝0.005，底层discount0.999，chunk折扣按20步折算。每10k更新做10回合训练内评估，每50k保存。三次训练耗时约8小时29分、8小时20分、8小时13分。</p>
+@@TRAIN_BUDGET_TABLE@@
+<figure><img src="figures/03_learning_curves.png" alt="三个DSRL seed的训练评估学习曲线"><figcaption>图4｜训练期间固定间隔的评估曲线。最终比较仍使用独立100回合终评；真实训练步约49万，另有约9–10万训练内评估步，均不是500k梯度更新的同义词。</figcaption></figure>
+<div class="finding"><strong>支持：</strong>在这个指定任务、原checkpoint与当前实现下，潜噪声RL能显著改善任务执行。<br><strong>边界：</strong>尚未证明整个LIBERO、多任务、OOD或通用语言跟随能力；Base只评估了一组100回合。原始Base高斯与重复的有界噪声参数化不同，后续有界随机对照用于进一步区分。</div>
+</section>
+
+<section id="prompts">
+<h2>4. 指令如何重构：明确文本与时间日程</h2>
+<p>早期“组合实验”没有在线LLM，也没有学到指令选择策略。使用人工有限候选，原任务奖励始终是奶油奶酪入托盘。</p>
+<div class="table-wrap"><table><thead><tr><th>ID</th><th>实际英文指令</th><th>用途</th></tr></thead><tbody>
+<tr><td>original</td><td><code>pick up the cream cheese and put it in the tray</code></td><td>原完整目标</td></tr>
+<tr><td>paraphrase</td><td><code>place the cream cheese in the tray</code></td><td>同义表达</td></tr>
+<tr><td>pick</td><td><code>pick up the cream cheese</code></td><td>只强调当前抓取子动作</td></tr>
+<tr><td>above_tray</td><td><code>move the cream cheese above the tray</code></td><td>短接口探针；不进入全部完整组合</td></tr>
+<tr><td>regrasp</td><td><code>grasp the cream cheese again and place it in the tray</code></td><td>显式要求重抓；开发后锁定进入确认</td></tr>
+<tr><td>conflicting</td><td><code>put the cream cheese on the table</code></td><td>冲突诊断；不当作原目标的合理替代</td></tr>
+</tbody></table></div>
+<p><strong>C1/C2日程：</strong>共同状态开始后的query0和query20使用候选指令，40步起一律切回original；每20步重新查询。此时比较的是“局部指令干预×冻结噪声策略”。<strong>后来的E1不同：</strong>A/B指令全400步保持，不再切回A，避免把B失败误解释成文本只干预40步。</p>
+<figure><img src="figures/06_prompt_schedule.png" alt="前缀、稳定期、前40步文本干预和噪声参数化"><figcaption>图5｜C0/C1共同前缀20步＋稳定4步已计入400步总预算；剩余376步。C2按实际持物前缀和释放等待扣除，不能照搬376。</figcaption></figure>
+<div class="table-wrap"><table><thead><tr><th>噪声模式</th><th>实际采样</th><th>用途</th></tr></thead><tbody>
+<tr><td>Base</td><td>50×32独立标准高斯</td><td>冻结π₀默认先验</td></tr>
+<tr><td>bounded_random</td><td>32维U(−1,1)，重复50次</td><td>匹配DSRL维度/范围的随机对照</td></tr>
+<tr><td>DSRL</td><td>冻结PixelSAC按当前图像/本体采样32维有界向量，重复50次</td><td>评估已学习的噪声策略；本批不再更新</td></tr>
+</tbody></table></div>
+<p>历史完整组合的RNG为 <code>73000 + reset_seed + 100000 × rollout_seed</code>，再按query index fold_in。同一噪声模式的文本分支共享随机键；不同分布的噪声数组并不相同。</p>
+<figure><img src="figures/07_probe_matrix.png" alt="正常状态短探针的指令与噪声响应矩阵"><figcaption>图6｜job18160的60个正常状态短分支，用40步片段观察文本与噪声是否改变动作。它证明存在可干预响应，不证明完整任务收益、语义正确性或互补性。</figcaption></figure>
+<figure><video controls preload="none" src="media/V05_normal_probe_instruction.mp4" aria-label="同状态短文本探针"></video><figcaption>视频2｜同状态、零噪声下原文与同义改写的短响应。视频时长仅2秒，对应短探针而非完整回合。</figcaption></figure>
+</section>
+
+<section id="c1">
+<h2>5. C1：开发集提示收益在独立确认中减弱</h2>
+<h3>5.1 状态构造与开发结果</h3>
+<p>开发reset10–19先用原文＋零噪声执行20步，确认尚未抓取或完成；构造C0无位移、C1世界坐标X＋3cm、C1 X−3cm，均重置目标速度并稳定4步。共同状态经新环境＋相同动作前缀重放，核对物理、本体和两路图像。各状态4文本×3噪声，共360主分支，另有2次重复验证。</p>
+<figure><img src="figures/08_c1_common_states.png" alt="C0与正负3厘米位移后的相同reset观测"><figcaption>图7｜reset10的真实共同状态。X是世界坐标，不自动等于画面水平左右；扰动和稳定消耗计入总400步。</figcaption></figure>
+<figure><video controls preload="none" src="media/V06_c1_noise_and_conditions.mp4" aria-label="C1原指令的Base与DSRL对比"></video><figcaption>视频3｜固定reset10，上排Base、下排DSRL；三列为C0、C1＋、C1−。用于解释构造和执行差异，不代表360条分支的频率。</figcaption></figure>
+<figure><img src="figures/09_c1_results.png" alt="C1开发集各指令与噪声条件的完整结果"><figcaption>图8｜完整开发矩阵。跨3种状态汇总时每个文本/噪声单元n＝30，但只有10个reset。DSRL original27/30，regrasp和pick均30/30，paraphrase29/30；Base original7/30、regrasp10/30。</figcaption></figure>
+<p>开发集上“改写＋DSRL”达到30/30，并不证明超加性交互。以original/regrasp × Base/DSRL的四单元计算，成功率交互为 <code>(30−27−10+7)/30＝0</code>。而且固定pick/regrasp已接近上限，尚未证明需要学习状态相关的指令selector。</p>
+<figure><video controls preload="none" src="media/V07_c1_four_instructions.mp4" aria-label="C1同一DSRL四种文本对比"></video><figcaption>视频4｜reset10、C1＋、同一DSRL控制器下的四种文本；所有候选40步后都回到原文。</figcaption></figure>
+<h3>5.2 新reset与三份控制器的独立确认</h3>
+<p>锁定original/regrasp后，使用reset100–109和相同三种状态；Base、有界随机、DSRL s0/s1/s2，共300分支。旧父job18196在后续recovery阶段退出1，前面seed0/1/2确认阶段已经完整保存。这里保留有效的300条确认数据，不把父job状态当作这些数据无效的理由，也不把后续失败掩去。</p>
+@@CONFIRM_TABLE@@
+<p class="small">“救回/损失”按相同reset、状态的original/regrasp成对计数。上表95%区间由本报告重新进行10,000次reset-cluster bootstrap（固定seed20261028）得到；每次保留同reset的三个条件。它是探索性区间，没有多重比较校正，不是预注册显著性判决。</p>
+<figure><img src="figures/confirmation_recomputed.png" alt="C1独立确认中五策略原文与改写成功次数"><figcaption>图9｜确认中三份DSRL的净改善分别为1、2、0条/30；seed2同时存在救回和损失。不能沿用开发集“全部成功”来描述确认结果。</figcaption></figure>
+<figure><video controls preload="none" src="media/V09_confirmation_gain_and_regression.mp4" aria-label="确认集改写改善和退化的配对反例"></video><figcaption>视频5｜事后挑选的说明反例：上排改写改善、下排改写退化，左original右regrasp。完整频率必须看配对表；视频不能独立证明平均收益。</figcaption></figure>
+<div class="finding"><strong>分析：</strong>语言干预可改变行为，部分情况下救回分支，但增益不稳定，尚不支持“学习指令选择＋Noise RL必然互补”。更值得先问：当前噪声策略是否已经把动作强烈拉向训练对象，使文本难以改变目标。</div>
+</section>
+
+<section id="c2">
+<h2>6. C2 v6：能恢复，但当前试点太小且偏容易</h2>
+<p>参考策略先把奶油奶酪抬起：最多160步内连续3步保持抓取、抬高≥4cm、水平移动≥1cm。固定世界坐标末端目标闭爪稳定后，分成匹配等待20步的两支：C0继续闭爪，C2物理开爪让物体掉回桌面。验证分离、桌面支撑、无异常穿透、下落≥2cm、水平位移≤8cm及可达性筛查，然后在原400步预算内续跑。</p>
+<figure><img src="figures/13_c2_common_states.png" alt="四个C2参考的持物和掉落后真实状态"><figcaption>图10｜四个有效参考分成C0持物/C2掉落。v6稳定指标用真实控制周期0.05秒计算的位移速度；旧失败版本的状态与阈值没有混入本表。</figcaption></figure>
+<figure><video controls preload="none" src="media/V10_c2_held_vs_drop.mp4" aria-label="相同前缀的持物与掉落恢复"></video><figcaption>视频6｜reset20的参考抬物、保持/掉落及续跑；上C0下C2，左Base右DSRL。掉落由真实开爪产生。</figcaption></figure>
+<p>请求reset20–24，只有20–23触发；24在160步内最多抬高4.10mm，仅1步检测到抓取，属于<strong>参考未触发</strong>。触发率4/5，条件恢复分母4，不能合成“端到端恢复成功率”。有效4参考×2条件×4文本×3噪声＝96主分支，另有2重复。</p>
+@@C2_TABLE@@
+<p>表中只含C2掉落，不混入更容易的C0。C0各组合均4/4。C2唯一失败是reset23、original、有界随机：虽然重抓并抬起，剩余289步内没完成入托盘。Base原文已经4/4，DSRL原文同样4/4；原文平均续跑步数123.5与96.0，仅可作四参考上的描述。</p>
+<figure><video controls preload="none" src="media/V12_c2_random_failure_and_recovery.mp4" aria-label="唯一有界随机失败与改写恢复的配对案例"></video><figcaption>视频7｜reset23有界随机的原文失败/改写成功；此反例不代表DSRL也在该分支失败。</figcaption></figure>
+<figure><img src="figures/17_trigger_and_budget.png" alt="触发未触发分母和C2完整交互预算"><figcaption>图11｜job18266完成，主运行物理步21,201＝参考515＋重放9,406＋续跑9,160＋稳定2,120，0梯度更新。合并全部条件95/96不能称为某一策略的99%恢复率。</figcaption></figure>
+<div class="finding"><strong>分析：</strong>已验证物理掉落、共同状态、预算和恢复评估流程，但4个状态且Base已满分，无法支撑学习恢复selector的必要性、显著增益或OOD泛化。后续若研究恢复，需要先构造更有区分度、仍可恢复的独立开发分布。</div>
+</section>
+
+<section id="e1">
+<h2>7. E1双目标确认：执行能力与目标偏置同时存在</h2>
+<h3>7.1 为什么要重做目标诊断</h3>
+<p>早期所有文本都围绕同一个A目标，不能检验噪声控制器能否随语言选择对象。新first_batch保持原物理场景，A文本为 <code>pick up the cream cheese and put it in the tray</code>，B文本为 <code>pick up the butter and put it in the tray</code>。相同观测、相同噪声策略，全文持续400步，不在完成原A目标时提前终止。</p>
+<p>开发reset3000–3009用于诊断，辅助文本各5次；确认reset3100–3139 × 两个采样seed × 两目标 × 五策略＝800。锁定先于确认；全部40个reset cluster完整、0技术错误/重试。首个稳定抓取定义为连续3个底层控制步满足，固定类别后不回写；没有抓取记NONE，而非删除。</p>
+<h3>7.2 逐目标结果</h3>
+@@E1_TABLE@@
+<p><strong>ever</strong>表示400步内曾满足请求的官方目标；<strong>选择性首次完成</strong>要求请求目标严格先于错误目标完成，同时完成也不算。三份DSRL在B下合计56/240曾完成，但只有7/240先完成B；不能把56/240解释为稳定的B指令跟随。</p>
+<figure><img src="figures/e1_goal_fidelity.png" alt="E1确认正确首抓A/B以及B ever与选择性首次完成"><figcaption>图12｜强A执行与弱B目标选择并存。三份旧控制器均未首先稳定抓到B；B指令下误抓A分别77/80、74/80、62/80，Base为38/80，有界随机31/80。</figcaption></figure>
+<figure><img src="figures/e1_confusion.png" alt="五策略的A/B指令首抓混淆矩阵"><figcaption>图13｜完整首抓分类保留OTHER/NONE。Base的B首抓也仅4/80，说明不能把B弱完全归咎于DSRL：底座grounding、B抓取技能及场景分布仍混杂。</figcaption></figure>
+<figure><video controls preload="none" src="media/E1_dev3000_all_policies.mp4" aria-label="E1固定开发reset五策略双目标仿真对照"></video><figcaption>视频8｜预先固定的开发reset3000，五策略×A/B十面板真实录像。它是开发案例，不是确认集筛选展示；文字与统计结论来自800条确认。</figcaption></figure>
+<h3>7.3 配对统计与解释</h3>
+<p>对这三份固定控制器取平均，两目标合并的正确首抓相对Base为<strong>＋25.63个百分点</strong>，95% reset-cluster区间[19.38,31.88]；官方ever为<strong>＋34.58个百分点</strong>，[27.50,41.67]。相对有界随机，正确首抓＋30.00个百分点，[23.13,36.25]，ever＋44.58，[37.50,51.25]。这些正收益主要由A贡献，不是双目标通用性的证据。</p>
+<p>语言干预效应 <code>L＝½[P(A首抓|A文)−P(A首抓|B文)＋P(B首抓|B文)−P(B首抓|A文)]</code>，Base为0.00625，有界随机−0.10625，三个DSRL为0.01875/0.03750/0.11250。同一reset/采样下双目标均正确首抓的比例，Base0/80、有界随机2/80、三个DSRL均0/80，未达到注册的语言接口可用门槛。</p>
+<p>B指令下额外误抓A相对Base为＋48.75、＋45.00、＋30.00个百分点，三个95% cluster区间均在0以上；相对有界随机也均为正。满足预设<strong>GOAL_BIAS_CANDIDATE</strong>投入判断。它说明有理由研究训练目标偏置，不是“VLA完全不理解语言”或已定位内部因果机制。</p>
+<p>一旦正确先抓A，Base为33/35完成A，三个DSRL合计239/240完成A。A的执行链路很强。B没有足够正确首抓样本，因此不能据此断言B只差语义、精度已足够。</p>
+<figure><img src="figures/e1_auxiliary_behavior.png" alt="同义、空文本和无关文本辅助行为"><figcaption>图14｜每辅助条件仅5回合。DSRL s0在同义、空文本、无关文本下均5/5首先抓A，提示对象偏好；空/无关文本没有请求目标，图中A行为不能标成任务成功，也不证明记忆泄漏。</figcaption></figure>
+<p class="small">统计采用10,000次reset-cluster bootstrap，采样seed和同reset全部方法一起重抽。三个固定controller不是240个独立模型；零事件产生的退化bootstrap区间不意味着总体概率精确为零。</p>
+</section>
+
+<section id="e2">
+<h2>8. E2组合任务：第一阶段阻塞，尚未隔离阶段衔接</h2>
+<p>使用两个LIBERO-90任务，Base冻结VLA、600步上限；global、fixed_stage、oracle_stage各10个reset4000–4009。真值oracle只用于评测上限诊断，不作为普通学习控制器的观测。完整官方goal优先终止。</p>
+<div class="table-wrap"><table><thead><tr><th>任务</th><th>global文本</th><th>阶段0文本</th><th>阶段1文本</th></tr></thead><tbody>
+<tr><td>T1 / id8<br>打开上抽屉并放碗</td><td><code>Goal: open the top drawer of the cabinet and put the bowl in it.</code></td><td><code>Goal: open the top drawer of the cabinet and put the bowl in it. Next: Open the top drawer.</code></td><td><code>Goal: open the top drawer of the cabinet and put the bowl in it. Next: Place the bowl inside it.</code></td></tr>
+<tr><td>T2 / id4<br>前方黄油入上抽屉后关闭</td><td><code>Goal: put the butter at the front in the top drawer of the cabinet and close it.</code></td><td><code>Goal: put the butter at the front in the top drawer of the cabinet and close it. Next: Place the front butter inside it.</code></td><td><code>Goal: put the butter at the front in the top drawer of the cabinet and close it. Next: Close the top drawer.</code></td></tr>
+</tbody></table></div>
+<p><strong>fixed_stage：</strong>从global开发回合第一阶段完成时间中位数校准，向上取20步并截断到[100,300]；本次没有有效完成事件，严格使用预设fallback：T1第200步、T2第300步切换。<strong>oracle_stage：</strong>每底层步累积阶段谓词，连续3步达标，在20步query边界切换；失效时允许回退。没有搜索切换时间直到出现正结果。</p>
+<figure><img src="figures/e2_stages.png" alt="E2两个任务三条件完整goal和第一阶段均0/10"><figcaption>图15｜六组完整任务与首阶段均0/10。T1三种条件共30回合都先稳定抓碗而没有打开抽屉；T2首抓NONE21/30、碗9/30，没有首先稳定抓到目标黄油。</figcaption></figure>
+<figure><video controls preload="none" src="media/E2_dev4000_all_conditions.mp4" aria-label="E2两个任务global fixed oracle六条件仿真"></video><figcaption>视频9｜预定reset4000，两个任务×三条件六面板；阶段字幕来自实际prompt日程，30秒。与统计一致的错误方向可视化，不用于替代所有回合。</figcaption></figure>
+<figure><img src="figures/E2_4000_contact_sheet.png" alt="E2开发reset关键帧及阶段动作"><figcaption>图16｜保存录像的关键帧。T1偏向搬碗到其他位置，T2常未选中目标；这些案例提示对象/目的地接口与技能问题，不能只解释为切换时点不对。</figcaption></figure>
+<div class="finding"><strong>分析：</strong>由于第一阶段尚未完成，oracle也没有形成足够的正确后续阶段轨迹，当前数据无法干净检验“只要知道阶段就能解决衔接”。未达到阶段确认门禁，不启动SFT-S或PPO。零成功也不证明未来适配后的阶段方法无效。</div>
+<p>工程witness已在合法抽屉范围内核验Open/Close/In及完整goal，未额外调用策略或环境step。因此至少排除了简单的成功谓词实现错误；prompt格式、raw reset分布、基本技能仍可能共同影响。</p>
+</section>
+
+<section id="migration">
+<h2>9. 迁移诊断：拒绝等价声明，限定新实验范围</h2>
+<p>为开展参数微调，转换现有同一π₀_libero到锁定RLinf native实现。检查包括图像方向/resize、本体和动作变换、horizon50/chunk20/denoise10、token48、显式z、初态和终止语义。原OpenPI加载器bf16舍入、Flax GELU逐步dtype和embedding缩放差异已作来源明确的兼容处理；RLinf/原模型源码和原权重没有被改写。</p>
+<p>但120组静态输入仍有<strong>23/120</strong>超过工程报警线（RMSE&gt;0.01或最大绝对差&gt;0.1），平均RMSE <strong>@@RMSE_MEAN@@</strong>，最大RMSE @@RMSE_MAX@@，最大绝对差 @@MAX_ABS@@。20个完整开发回合使用逐项一致的初始XML、物理、本体、双图像以及旧Base实际保存的z，0技术错误、8,000物理步；首抓类别一致率60%，双目标ever向量一致率70%，均低于预设90%。</p>
+<figure><img src="figures/migration_limits.png" alt="120组静态迁移误差与20回合行为一致率"><figcaption>图17｜静态与闭环均不支持跨框架数值/行为等价。相同输入、相同随机数组是必要控制，但不是通过结果。</figcaption></figure>
+@@NATIVE_TABLE@@
+<p class="small">表为迁移用开发集，每目标10回合，不能当成新SFT终评。native B正确首抓1/10，误抓A4/10，B ever2/10；目标接口问题在native内部仍存在。</p>
+<p>另一个诊断显示，原JAX自身在4090/3090上相同数组也有33/120报警，最大绝对差2.040344，说明生成过程存在硬件数值敏感性。<strong>这不证明native等价，也不撤销原门禁失败。</strong>依据实验规约11.1的回退条款，下一批只开展同一native runtime未适配/适配的配对比较，不将结果与原JAX DSRL作“只改了LoRA”的单变量比较。</p>
+<p>job18655因严格对齐门禁返回FAILED，完整20回合仍可作为迁移诊断证据。原始失败报告保留，没有生成虚假的SFT_ALIGNMENT_PASS；审核只批准限定范围的SFT-A前置与试点。</p>
+</section>
+
+<section id="sft">
+<h2>10. SFT-A：在真实双目标监督上先检验可修复性</h2>
+<p><span class="badge pending">正在运行</span>job<strong>18658</strong>，3090node2、单RTX3090、8 CPU。代码锁定 <code>1ede832071e9de25cc92566b241f80916717d675</code>，独立环境 <code>dsrl_sft_native_20261028</code>；原JAX基线环境保持原样。下述是当前已执行的条件后续批次，不代表10月27日first_batch曾进行训练。</p>
+<h3>10.1 数据与监督时间必须正确</h3>
+<p>官方LIBERO数据源revision <code>f13aa24a3da8c43c7225569f28c562979fa0e35a</code>，A/B各50条真实演示；每目标按完整轨迹40 train/10 validation，split seed99023，训练seed17。不是把A轨迹改标签成B。全部100条官方终态成功；独立逐状态顺序审计显示两目标各50条均首先稳定抓取真实请求对象。</p>
+<p>原数据生成器在执行action[j]后记录obs[j]，但states[j]是执行前状态，因此训练监督采用 <code>obs[j] → actions[j+1:j+51]</code>。不跨轨迹、不在末尾补假的时间动作；额外DeltaActions作用于前6维，保留原归一化、32维动作接口和真实7维诊断。两路原始相机均旋转180°，使用作者实际client resize。</p>
+<div class="two-col">
+<figure><img src="figures/A_image_data_vs_render.png" alt="A轨迹图像与对应状态重渲染对齐"><figcaption>图18a｜A演示图像与正确时序状态重渲染对照，已完成历史审计；本报告复用现成图片，没有调用仿真。</figcaption></figure>
+<figure><img src="figures/B_wrist_data_vs_render.png" alt="B轨迹腕部图像与重渲染对齐"><figcaption>图18b｜B腕相机对照。重渲染MAE低于0.11像素级平均差，不是所有传感器逐位相等；历史EEF观测误差约3.2e−5至9.6e−5。</figcaption></figure>
+</div>
+<h3>10.2 实际训练与通过的前置</h3>
+<div class="table-wrap"><table><thead><tr><th>项目</th><th>锁定设置/实际证据</th></tr></thead><tbody>
+<tr><td>适配</td><td>LoRA rank8 / alpha8 / dropout0；all_linear按实际native模块类型覆盖，不假称所有计算路径都被训练</td></tr>
+<tr><td>参数</td><td>6,043,136个LoRA参数，462张量；未适配基座hash保持一致</td></tr>
+<tr><td>梯度覆盖</td><td>profile发现56张量无梯度，部分源于native MHA functional路径；保留完整coverage，不以“all_linear”名义掩盖。自定义Gemma MLP不是普通nn.Linear，未被该规则适配</td></tr>
+<tr><td>优化</td><td>global batch8 / micro1；目标均衡；LR1e-4，warmup100，cosine，Adam β(0.9,0.95)，eps1e-8，weight decay1e-10，clip1，bf16</td></tr>
+<tr><td>验证</td><td>每条held-out轨迹8个固定真实窗口；固定noise/time seed99024；按目标、轨迹等权的32维flow loss选checkpoint，真实7维另报</td></tr>
+<tr><td>前置job18657</td><td>真实2次更新，第二次LoRA最大delta约1.00036e-6；新进程恢复后同输入输出max error＝0；基座未变。这2次计入总预算</td></tr>
+<tr><td>预算</td><td>先到500更新；只有held-out均值和B真实7维loss均低于初始且有限，才继续到共享上限3000；每500保存</td></tr>
+<tr><td>配置SHA256</td><td><code>71bc984bddee727bbd83d4e2b46eeb2462485cb595b6b7fe92511fe742b8c9b1</code></td></tr>
+</tbody></table></div>
+<p class="small">profile覆盖、真实参数delta、新进程恢复、演示首抓顺序、原JAX跨GPU数值记录与工作流状态已只读复制到本地，纳入source_manifest。迁移审核锁定的8份本地运行证据SHA逐项匹配。没有复制模型权重或训练checkpoint张量。</p>
+<figure><img src="figures/sft_snapshot.png" alt="SFT实际更新快照及性能数据"><figcaption>图19｜截至@@SNAPSHOT_TIME@@的本地实录，@@TRAIN_UPDATES@@次更新、train loss约@@TRAIN_LOSS@@、单次更新约@@UPDATE_SECONDS@@秒、Torch峰值约6.57GiB。它是固定截止快照，不保证阅读时的实时进度。</figcaption></figure>
+<figure><img src="figures/sft_training_curve.png" alt="SFT已保存的真实训练loss和学习率曲线"><figcaption>图20｜真实逐更新日志及20次更新滑动均值，已跨过100次warmup。训练目标下降不等于目标选择或闭环成功率改善；行为效果仍等待终评。</figcaption></figure>
+<p>按约5.9秒/update估计，500更新pilot总计算约49分钟，3000更新约4.9小时，验证/保存和排队另计。最终训练量取决于500门禁。报告期间SSH曾短暂超时，随后恢复；恢复后只读状态确认训练仍RUNNING，自动交接器WAIT_TRAIN，没有因编写报告取消、重启或更改任务。</p>
+<h3>10.3 已安排的自动交接</h3>
+<div class="flow">
+<div><b>① 真实SFT</b>18658从profile第2更新恢复；500门禁，最多3000</div>
+<div><b>② CPU交接器</b>脱离会话运行，每60秒检查完成文件、commit与配置</div>
+<div><b>③ 自动提交终评</b>训练完成且门禁合格后提交；配额拒绝则等待重试，不重复训练</div>
+<div><b>④ 行为审计</b>两臂×A/B×20新reset；保存事件、指标与录像</div>
+</div>
+<p>交接器代码 <code>998be8b9d55376a66d7b548a65dcf720316f518f</code>，此前核验PID2759450、PPID1、独立session；工作流位于 <code>research/sft-a-v1-20261028/workflows/train-18658/</code>。这不是已提交的第二个GPU作业：有效提交配额限制使终评需在训练结束后自动提交。交接器不占GPU，不依赖本次聊天或SSH连接；遇到训练/评估失败会留记录并停止待审，不盲目重开。</p>
+<p>终评只用一次选定checkpoint，native_unadapted / adapted × A/B × 新reset3300–3319，共80回合、最多32,000物理步；同初态/显式噪声配对。预定3300/3301录像，不按结果挑视频；旧确认集和保留集不参与选checkpoint。</p>
+<pre><code>powershell -ExecutionPolicy Bypass -File tools/remote.ps1 status 18658
+powershell -ExecutionPolicy Bypass -File tools/remote.ps1 logs 18658</code></pre>
+<div class="caution"><strong>尚无SFT效果结论。</strong>当前只证明数据、更新、冻结、恢复与训练启动已通过。80回合结束后才能判断目标选择、B技能、A保留和原目标完成是否改善。SFT-S、PPO、新的Noise RL及恢复训练均未由本报告启动。</div>
+</section>
+
+<section id="evidence">
+<h2>11. 目前足以支持什么，不足以支持什么</h2>
+<div class="table-wrap"><table><thead><tr><th>论点</th><th>证据判断</th><th>理由与缺口</th></tr></thead><tbody>
+<tr><td>DSRL能优化本单任务π₀执行</td><td><strong>支持，范围明确</strong></td><td>3个训练seed、各100独立终评均98–100%；仍非跨任务复现</td></tr>
+<tr><td>文本和噪声都能影响动作</td><td><strong>支持接口响应</strong></td><td>同状态探针与完整分支有变化；不等于两者作用可分解</td></tr>
+<tr><td>重抓指令与Noise RL有稳定超加性互补</td><td><strong>尚不支持</strong></td><td>开发四单元交互为0，确认增益小且有退化；无学习selector对照</td></tr>
+<tr><td>已学会通用双目标语言跟随</td><td><strong>不支持</strong></td><td>E1 B首抓0/240，双目标均正确0；Base B也弱，机制仍混杂</td></tr>
+<tr><td>A单任务奖励形成额外A目标偏好</td><td><strong>有较强现象证据</strong></td><td>三controller相对Base/有界随机均额外误抓A；因果机制需对称B训练或均衡训练控制</td></tr>
+<tr><td>阶段信息现在即可改善长任务</td><td><strong>当前没有支持</strong></td><td>第一阶段为0，oracle未隔离衔接；不是对适配后方法的否定</td></tr>
+<tr><td>已证明困难扰动恢复/OOD提升</td><td><strong>不支持</strong></td><td>C2仅4触发参考，Base已4/4；同场景受扰不自动构成严格OOD</td></tr>
+<tr><td>新native与旧JAX等价</td><td><strong>门禁未通过</strong></td><td>静态23/120报警，闭环60%/70%；新结果只能native内部比较</td></tr>
+<tr><td>SFT改善B且保留A</td><td><strong>待验证</strong></td><td>训练进行中；真实演示与参数更新已核验，行为终评未完成</td></tr>
+</tbody></table></div>
+<p>因此，目前适合的FYP阶段性表述是：<strong>复现单任务潜噪声适配，并通过同状态、双目标和组合任务诊断发现其适用边界，提出目标条件化与技能补齐的后续检验。</strong>还不适合表述为已实现多任务通用恢复、已验证语言/噪声固定分工、完整SARL复现或首次提出某类方法。</p>
+</section>
+
+<section id="plan">
+<h2>12. 基于证据的下一步实验与研究方案</h2>
+<p>优先级是先回答一个能改变下一步投入的问题：<strong>在共同native底座上，真实A/B监督能否把B的目标选择拉起来，同时保住A？</strong>完成当前SFT与自动配对评估后再选一个研究分支，避免同时改底座、噪声、语言selector、阶段与奖励而失去可解释性。</p>
+<h3>12.1 当前批次完成后的分析清单</h3>
+<ol>
+<li><strong>先核验有效性：</strong>训练最终更新量、500门禁、被选checkpoint及其val loss、冻结hash、LoRA实际delta、终评两臂同初态/z、80条完整轨迹及有无技术缺失。不以loss下降替代行为结论。</li>
+<li><strong>按目标拆开：</strong>正确首抓、首抓混淆、L、pair_both_correct、ever/final/稳定释放/选择性首次完成、A保留、B误抓A及步数。对20个reset成簇计算配对差和区间，报告绝对次数。</li>
+<li><strong>看正确选择后的执行：</strong>若B首抓上升但完成仍低，才有足够样本讨论B执行链路；若B ever只是在先完成A之后上升，则目标接口仍未解决。</li>
+<li><strong>视频与频率对照：</strong>先展示预定3300/3301，再从完整错误分类中抽取典型例，明确标记事后案例，不凭“看起来更好”选checkpoint。</li>
+</ol>
+<div class="table-wrap"><table><thead><tr><th>SFT结果模式</th><th>合理解释</th><th>下一步动作（条件计划）</th></tr></thead><tbody>
+<tr><td>B正确首抓/选择性完成提高，A保留</td><td>小规模目标接口具有监督可修复性；不是已经证明多任务通用</td><td>独立确认后可作为共同warm start，选“目标条件潜策略”或技能已具备的阶段对照之一</td></tr>
+<tr><td>验证loss下降，B首抓基本不变</td><td>离线预测改进未转成闭环目标选择；或数据/执行误差仍主导</td><td>诊断输入、动作时序、LoRA有效覆盖和闭环分布；不盲目扩大PPO预算</td></tr>
+<tr><td>B首抓提高，但入托盘不提高</td><td>选择问题部分缓解，执行/释放/目的地成为瓶颈</td><td>针对正确选中B后的失败做技能/动作链分析，再决定action expert适配</td></tr>
+<tr><td>B提升但A明显退化</td><td>出现适配权衡，尚不构成双目标共同改进</td><td>重新锁定A保留约束；考虑相同预算下action-expert-only与当前LoRA对照，不择优隐去退化</td></tr>
+<tr><td>500更新未通过loss门禁</td><td>当前监督/覆盖/优化方案未提供预定信号</td><td>保留500和初始结果，完成诊断；不自动追加到3000或开展多seed formal</td></tr>
+</tbody></table></div>
+<h3>12.2 优先研究候选：目标条件化的潜噪声策略</h3>
+<p><strong>研究问题：</strong>潜噪声RL的单目标奖励是否塑造了强动作先验？在相同冻结VLA、相同A/B训练任务与预算下，给潜策略加入目标条件，能否改善多目标选择与执行，并减少负迁移？当前E1使这个问题比复杂阶段恢复更直接，但它仍是建议，不是已实现或已排队实验。</p>
+<div class="table-wrap"><table><thead><tr><th>拟议对照</th><th>保持相同</th><th>隔离的问题</th></tr></thead><tbody>
+<tr><td>冻结VLA＋默认高斯</td><td>共同checkpoint、观测、动作变换、reset分布与评估</td><td>底座起点</td></tr>
+<tr><td>重复有界随机</td><td>32维范围与时间重复方式</td><td>参数化改变本身的贡献</td></tr>
+<tr><td>目标盲SAC，A/B均衡训练</td><td>同A/B任务调度、请求目标奖励、真实环境总预算</td><td>公平多任务潜策略基线</td></tr>
+<tr><td>目标条件SAC，A/B均衡训练</td><td>除目标编码外同上，网络/计算增加明确报告</td><td>潜策略的目标条件是否带来增益</td></tr>
+</tbody></table></div>
+<p>关键控制是<strong>目标盲与目标条件两组都在A/B均衡奖励下训练</strong>；不能将新A/B条件策略只与旧A-only控制器比较，把训练目标变多的收益全部归因于语言条件。仅用A/B one-hot时结论是已知双任务条件化，不能称语言泛化；若使用文本embedding，必须另外锁定未见表述，并区分语义编码和任务ID。正式阶段再考虑3个训练seed，先完成真实更新/恢复/短预算pilot。</p>
+<p>一个更小的可选机制诊断是：在<strong>原JAX底座</strong>上按相同旧训练协议训练B-only控制器，分别在A/B上测试，和A-only形成对称矩阵。若都倾向各自奖励对象，能更直接支持奖励特异性先验；若B-only也学不起来，则底座动作支持/技能问题更突出。该诊断需要另立预算和种子锁定，本文没有提交。</p>
+<h3>12.3 阶段、恢复与OOD如何按条件推进</h3>
+<p><strong>阶段路线：</strong>只有在T1/T2基本技能已出现可解释信号后，再按原规约比较G完整goal与GS相同goal＋oracle stage，共同底座、相同action expert训练范围、相同真实交互总预算。先做两组pilot，不同时引入新的Noise SAC。oracle是评估/训练上限条件；实际部署阶段估计器必须另测，不能让控制器暗用真值。</p>
+<p><strong>恢复路线：</strong>先在独立开发状态上找到Base既非全成功、也非全不可达的扰动强度，锁定触发率、掉落位置/速度、剩余预算和安全构造判据；分别报告未触发、触发后可恢复性与条件成功。正式确认用新reset和强度，不用旧C2四参考反复调到正结果。共同前缀、构造、重放和训练各阶段都计入交互预算。</p>
+<p><strong>OOD路线：</strong>依次区分未见语言表述、未见初始布局、未见扰动强度、未见物体/任务，分别锁定训练支持和留出分布。同场景A/B和同义改写不足以证明跨任务通用。先得到已知任务的可靠多目标接口，再投入更广泛OOD评估，减少因底座零能力导致无法解释的全失败。</p>
+<div class="caution"><strong>执行边界：</strong>以上是报告中的后续条件方案，不自动启动。当前唯一训练仍是18658及已安排的同native配对终评。原规约的保留集不因结果不理想而追加读取；新研究分支需先锁定主要假设、预算、划分、终点和失败处理。</div>
+</section>
+
+<section id="repro">
+<h2>13. 复现索引、来源与本报告核验</h2>
+<h3>13.1 关键运行与版本</h3>
+<div class="table-wrap"><table><thead><tr><th>运行/用途</th><th>job / commit</th><th>结果与查阅位置</th></tr></thead><tbody>
+<tr><td>旧基线</td><td>18045；18046→18102；18103→18122；18123→18125<br><code>c227be8c48353115b7c5de0b3e99fb17d388462f</code></td><td>远端各<code>runs/job-ID/</code>；本地历史报告raw缓存</td></tr>
+<tr><td>接口、C1开发</td><td>18160 / 18166</td><td><a href="data/C1_development_360_cases.csv">360分支CSV</a>；短探针来源登记在source_manifest</td></tr>
+<tr><td>C1确认</td><td>18196 seed0/1/2<br><code>2f2b2171b35ce995682775d36df1330989c0fa05</code></td><td><a href="data/confirmation_300_cases.csv">300分支CSV</a>；父job后续recovery失败，确认阶段完整</td></tr>
+<tr><td>C2 v6</td><td>18266<br><code>0f8f6e4b4efd</code>（短hash）</td><td><a href="data/C2_v6_96_cases.csv">96分支CSV</a>；未触发记录保留于原结果</td></tr>
+<tr><td>first_batch</td><td>18582/18583 E0；18584主评估<br><code>008a0a2f9789b14e2cc732a15e23ad9432a1aa79</code></td><td><a href="data/summary_by_condition.csv">逐条件汇总</a>、<a href="data/paired_cluster_statistics.json">原配对统计</a>、<a href="data/resolved_protocol.json">锁定协议</a></td></tr>
+<tr><td>迁移诊断与范围审核</td><td>18655；审核配置</td><td><a href="data/sft_a_migration_review.json">保留未通过门禁的内部实验限定</a></td></tr>
+<tr><td>SFT-A</td><td>18657 profile；18658 train<br><code>1ede832071e9de25cc92566b241f80916717d675</code></td><td><a href="data/sft_a_v1.json">训练配置</a>、<a href="data/run.json">实际run</a>、<a href="data/latest.json">截止时快照</a>、<a href="data/SFT_PROFILE_PASS.json">真实更新/新进程恢复</a></td></tr>
+<tr><td>后台终评交接</td><td><code>998be8b9d55376a66d7b548a65dcf720316f518f</code></td><td>workflow train-18658；不改变训练1ede源码目录</td></tr>
+</tbody></table></div>
+<p>锁定子模块：LIBERO <code>87edbd1b823e464bc66557d213cc45e9f88aa543</code>，OpenPI <code>a6d2400d2534ce32e7bdf8747709b97aaef8ec04</code>。RLinf新批次 <code>fab7f407fbc611085eb163962e3c89c0ab424c1a</code>。</p>
+<p>原环境Python3.11.11、JAX0.5.0、TensorFlow2.19.0、protobuf5.29.6、MuJoCo3.3.1；新native环境Torch2.11.0+cu130、Torchvision0.26.0+cu130、PEFT0.17.1、JAX0.5.3、numpy1.26.4、Arrow20、datasets2.14.4。新旧环境不是同一依赖集合。native完整freeze SHA为 <code>f2374e55360d3823e2e2451faf80f7b44515325603e7cfbd911041304c4a1115</code>。</p>
+<h3>13.2 预算、失败与有效性记录</h3>
+<p>first_batch主job18584在3090node2完成，Slurm 6:30:12；含两个E0累计6.7353已分配GPU小时、420,164真实物理步＝408,800策略＋11,360重放＋4构造，0新梯度更新。990/990轨迹与冻结权重闭环核验通过，0技术错误/重试；GPU采样峰值9,079MiB、RSS峰值23,273.9MiB。原生done后继续记录的119,417步是E1固定horizon的有意设计，不是偷偷重复计分。</p>
+<p>工程故障按类型保留：早期C2的OSC固定末端与稳定定义问题、node2分配GPU初始化故障、新SFT数据obs/state时序、NNX value叶包装、标量mask维度、XML资产绝对路径、跨NumPy pickle以及PEFT配置接口。修复后要重新验证对应流程；旧协议状态不与新版本混池。这里的FAILED既可能是工程错误，也可能是对齐门禁按设计拒绝，不能直接解释为算法无效。</p>
+<h3>13.3 本地文件与复核方法</h3>
+<p>本报告主文件为 <code>docs/reports/20261028/report.html</code>；图表、视频在相邻<code>figures/</code>与<code>media/</code>，可离线打开并播放。复制整个文件夹可保留相对链接；打印PDF会隐藏播放器并保留视频文件名/说明。视频、逐分支数据和QA目录已排除Git，模型/数据集未复制到报告。</p>
+<p><a href="source_manifest.json">source_manifest.json</a>记录每个实际读取来源的相对路径、字节数和SHA256，以及数值/引用核验项；<a href="data/derived_results.json">derived_results.json</a>保留本报告重算的配对次数与区间。报告生成器只读本地缓存，没有SSH、仿真器、GPU调用或训练环境导入。历史视频沿用已完成的动作精确重放核验，不重新生成轨迹。</p>
+<p>本地完整历史材料仍在 <code>tmp/experiment-report-20261021/</code> 和 <code>tmp/language-stage-20261027/job-18584/</code>。first_batch最终归档SHA256：<code>d1a64cbef1c4683f93c4ee7eb14a911d3942ed699c75a9640c6eb882284b74f5</code>。本报告是跨批次整理，没有覆盖原报告、原统计、失败记录或锁定协议。</p>
+</section>
+<footer>报告由项目已有运行证据整理，分析与条件方案以2026-10-28状态为准。研究建议尚未执行；效果判断仅限列明的任务、底座、分布与样本。读取本文件不需要连接服务器。</footer>
+</main>

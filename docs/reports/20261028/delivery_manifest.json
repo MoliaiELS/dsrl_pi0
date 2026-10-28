@@ -1,0 +1,10 @@
+{
+  "report_sha256": "10921b02e3408accc70add20ea8a1a1340aab38e044f32c4683ee0c94b8e4ab8",
+  "archive_sha256": "9ff71f79bd821f27e4e17a4a03afa42d9c75fe86f76470d4c6f884a2cb365d04",
+  "archive_bytes": 20492111,
+  "archive_files": 68,
+  "videos": 9,
+  "snapshot": "2026-10-28 13:25:31 CST",
+  "checks": 52,
+  "local_only": true
+}
