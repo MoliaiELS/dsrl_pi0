@@ -1,0 +1,30 @@
+{
+  "repo": "yifengzhu-hf/LIBERO-datasets",
+  "revision": "f13aa24a3da8c43c7225569f28c562979fa0e35a",
+  "files": [
+    {
+      "type": "file",
+      "oid": "a50468a853912336c588d947307d13256bc78bde",
+      "size": 507311634,
+      "lfs": {
+        "oid": "96c1728b1e138a09f8799b981acdb08de41e8ebb6244294c27cf142547eaef1f",
+        "size": 507311634,
+        "pointerSize": 134
+      },
+      "xetHash": "77b73165a568cc7de87b2965f66da19500e4fcede0e595080ee0412d47e02c76",
+      "path": "libero_90/LIVING_ROOM_SCENE3_pick_up_the_butter_and_put_it_in_the_tray_demo.hdf5"
+    },
+    {
+      "type": "file",
+      "oid": "13c6477d36edd503aa29184a2c212b7ba5999a2c",
+      "size": 768466210,
+      "lfs": {
+        "oid": "1702b5b6c81385edfe6e801372e20c5e16d1774faf030f5c0f67f159bd1eeead",
+        "size": 768466210,
+        "pointerSize": 134
+      },
+      "xetHash": "41bba579f942a2bc3c81099e98c0b1e813ecdb3207fe9e913758b033955a9d3d",
+      "path": "libero_90/LIVING_ROOM_SCENE3_pick_up_the_cream_cheese_and_put_it_in_the_tray_demo.hdf5"
+    }
+  ]
+}
