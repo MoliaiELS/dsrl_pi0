@@ -59,8 +59,9 @@ def load_model():
         action_chunk=20,model_action_dim=32,paligemma_variant='gemma_2b',action_expert_variant='gemma_300m',
         max_token_len=48,discrete_state_input=False,torch_compile=False)))
     model=get_model(cfg)
-    from tools.sft_compat import apply_original_siglip_activation
+    from tools.sft_compat import apply_original_siglip_activation,preserve_original_policy_load
     apply_original_siglip_activation(model)
+    preserve_original_policy_load(model)
     return model.to(device='cuda')
 
 
@@ -428,7 +429,8 @@ def main():
         slurm={k:v for k,v in os.environ.items() if k in ['SLURM_JOB_PARTITION','SLURM_CPUS_PER_TASK','SLURM_JOB_NODELIST']}))
     if args.mode!='verify':atomic(args.output/'numerical_compatibility.json',dict(
         siglip_and_gemma_gelu='original JAX typed elementary tanh formula, including bf16 intermediate rounding; CPU 1001-point bf16 reference exact',
-        modified_parameters=False,tf32_matmul=False,tf32_cudnn=False,bf16_reduced_precision_reduction=False,
+        source_policy_load='all checkpoint leaves bf16; native fp32 islands hold bf16-rounded values upcast to fp32',
+        checkpoint_files_modified=False,tf32_matmul=False,tf32_cudnn=False,bf16_reduced_precision_reduction=False,
         upstream_rlinf_unmodified=True))
     try:
         if args.mode=='align':align(args,logger)

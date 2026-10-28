@@ -38,3 +38,24 @@ def apply_original_siglip_activation(model):
     # Only this process's function binding changes; upstream files stay pinned.
     gemma.gelu_glu=original_gelu_glu
     return names
+
+
+def original_embedding_encode(self,tokens):
+    x=self.embedding(tokens)
+    return x*x.new_tensor(math.sqrt(self.embed_dim))
+
+
+def preserve_original_policy_load(model):
+    """The actual JAX policy loader rounds EVERY checkpoint leaf to bf16.
+
+    Native RLinf keeps selected operations/parameters in fp32. Those parameters
+    must hold bf16-rounded values upcast to fp32, matching JAX's mixed-operand
+    promotion, rather than raw unrounded training-checkpoint values.
+    """
+    import torch
+    rounded=[]
+    for name,p in model.named_parameters():
+        if p.dtype==torch.float32:
+            p.data=p.data.to(torch.bfloat16).to(torch.float32);rounded.append(name)
+    model.llm.embedder.encode=MethodType(original_embedding_encode,model.llm.embedder)
+    return rounded
