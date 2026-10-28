@@ -7,7 +7,6 @@ import argparse
 import hashlib
 import json
 import os
-import pickle
 import re
 from pathlib import Path
 import subprocess
@@ -92,6 +91,7 @@ def packed(sample):
 def simulation(model,manifest,args,kind,output,logger=None):
     import torch
     from tools.sft_data import transform_sample, PROMPTS
+    from tools.sft_ipc import send,receive
     req_r,req_w=os.pipe();res_r,res_w=os.pipe()
     env=dict(os.environ,JAX_PLATFORMS='cpu')
     if kind=='alignment':
@@ -111,7 +111,7 @@ def simulation(model,manifest,args,kind,output,logger=None):
     try:
         with os.fdopen(req_r,'rb',buffering=0) as requests,os.fdopen(res_w,'wb',buffering=0) as responses:
             while True:
-                try:message=pickle.load(requests)
+                try:message=receive(requests)
                 except EOFError:break
                 goal=next(g for g,t in PROMPTS.items() if t==message['prompt'])
                 sample=transform_sample(runtime,goal,message['state'],dict(image=message['image'],wrist=message['wrist']))
@@ -121,7 +121,7 @@ def simulation(model,manifest,args,kind,output,logger=None):
                 norm=manifest['normalisation']['actions']
                 actions=actions*(np.asarray(norm['std'])+1e-6)+np.asarray(norm['mean'])
                 actions[:,:6]+=message['state'][None,:6]
-                pickle.dump(actions[:,:7],responses,protocol=5)
+                send(responses,dict(actions=actions[:,:7]))
                 queries+=1
                 if logger and queries%20==0:
                     latest=read(output/'latest.json') if (output/'latest.json').exists() else {}

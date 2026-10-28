@@ -3,7 +3,6 @@ import argparse
 import copy
 import os
 from pathlib import Path
-import pickle
 from types import SimpleNamespace
 
 import numpy as np
@@ -22,6 +21,7 @@ def run(args):
     from tools.research_runner import rollout
     from tools.run_logger import RunLogger
     from tools.sft_data import bddl_for
+    from tools.sft_ipc import send,receive
     root=Path(os.environ['DSRL_DATA_ROOT'])/'runs/job-18584'
     p=read(root/'resolved_protocol.json')['protocol']
     output=args.output;output.mkdir(parents=True,exist_ok=True)
@@ -37,8 +37,8 @@ def run(args):
         message=dict(state=obs_to_qpos(copy.deepcopy(obs),b.probe.variant),prompt=text,noise=noise,
             image=np.asarray(image_tools.resize_with_pad(obs['agentview_image'][::-1,::-1],224,224)),
             wrist=np.asarray(image_tools.resize_with_pad(obs['robot0_eye_in_hand_image'][::-1,::-1],224,224)))
-        pickle.dump(message,request,protocol=5)
-        result=pickle.load(response)
+        send(request,message)
+        result=receive(response)['actions']
         assert result.shape==(50,7) and np.isfinite(result).all()
         return result
     b.infer=infer
