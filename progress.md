@@ -2,15 +2,17 @@
 
 更新时间：2026-10-28（Asia/Shanghai）。本文件记录事实状态；提交成功不等于运行成功。
 
-## 当前状态：SFT-A已真实训练，评估自动交接已运行（10-28 13:25快照）
+## 当前状态：SFT-A已通过500更新门禁，继续3000上限（10-28 13:50快照）
 
-- **18658 RUNNING，3090node2，单RTX3090、8 CPU**。13:25:31本地缓存记录累计270次真实梯度更新，train loss0.02642、gradient norm0.0880、update5.78秒、Torch峰值6731.4MiB。已跨过100更新warmup。训练代码固定 `1ede832071e9de25cc92566b241f80916717d675`，从profile第2更新恢复，不受本地报告修改影响。
+- **18658 RUNNING，3090node2，单RTX3090、8 CPU**。13:49通过500门禁，13:50只读复核已稳定推进到518更新，train loss0.02334、gradient norm0.1083、update5.79秒、Torch峰值6731.4MiB，采样GPU进程显存7204MiB。训练代码固定 `1ede832071e9de25cc92566b241f80916717d675`，从profile第2更新恢复；本轮继续既有训练，没有重开或增加预算。门禁、checkpoint元数据、状态和两进程PPID1凭据已缓存到 `tmp/language-stage-20261027/sft_a_followup_20261028/snapshot.json`。
+- **PILOT_DECISION passed=true，step500**：固定held-out等权loss从0.08960916降至0.02919511；A真实7维从0.29750895降至0.11283339，B真实7维从0.52052526降至0.15239104。满足预先锁定的均值与B real7双门禁，自动继续到共享3000上限。`checkpoint-000500.pt`已保存，SHA256 `7747e4c31aff07f887034c64e1bacb855f9fe592b28f2e66afa116890d6db224`；这不是闭环效果结论。
 - **18657 profile COMPLETED/0、真实2更新通过**：LoRA最大delta1.00036e-6，基座hash不变，新进程恢复输出max error0。6,043,136个LoRA参数、462张量；56张量无梯度的实际覆盖限制保留，不假称所有计算路径已适配。500更新pilot和最多3000更新均包含这2次。
 - **严格限制比较范围**：18655完整20个开发回合、8000物理步、0技术错误；首抓/goal向量一致60%/70%，低于90%门槛，120静态组23报警，跨框架等价未通过。按规约11.1仅开展 `within_native_runtime_only` 的未适配/适配配对，不作旧JAX DSRL单变量归因。`configs/sft_a_migration_review.json`保留依据，8份已复制的锁定运行证据SHA逐项一致；没有伪造alignment pass。
 - **独立native环境已完成**：有效prefix是个人Conda根目录 `envs/dsrl_sft_native_20261028`，原dsrl_pi0环境未改。两目标各50条真实演示，40train/10val整轨迹划分；100条真实首抓/终态审计通过。500门禁为held-out等权32维均值及B真实7维loss均低于初始，才继续到共享3000上限。
 - **自动终评交接器正常**：PID2759450、PPID1、独立session；代码 `998be8b9d55376a66d7b548a65dcf720316f518f`。最新工作流 `WAIT_TRAIN`，training_slurm_state=RUNNING，evaluation_job=null。有效提交配额暂不允许同时挂第二个GPU作业，因此训练完成且完成文件/commit/config校验后自动提交唯一 `sft-a-eval-18658`；明确配额拒绝则60秒重试，模糊提交先查账不盲目重复，无训练自动重开。
+- **自动CPU闭环已部署并验证**：PID2785566、PPID1、独立session、CUDA不可见，固定代码 `22e65992442c265ef72aaf4b8932260ca66cd520`；工作流状态 `WAITING_FOR_EVALUATION`，心跳持续更新。等原终评链COMPLETE才读取80条结果，检查全部artifact/动作/文本/事件/初态/z、重算指标和验证loss选checkpoint，输出20-reset配对bootstrap（10000次、seed99025）、HTML/CSV、8段预定录像索引与ZIP。无额外仿真/模型调用、无新GPU提交，不改变1ede运行目录。4项针对性测试在本地和远端均通过，含真实400步轨迹、损坏动作、伪造首抓、ever与选择性完成区分。状态镜像 `SFT_ANALYSIS_WORKFLOW.json` 已接入原status入口；最终材料位于未来评估job的 `analysis/`。
 - 终评固定同native两臂×A/B×3300–3319共80回合、最多32000物理步；选checkpoint只用held-out loss，不用行为确认集。预定3300/3301录像。**尚无SFT行为结果**；SFT-S/PPO/新Noise RL/恢复训练未开启。
-- 查询整条链：`powershell -ExecutionPolicy Bypass -File tools/remote.ps1 status 18658`；日志用 `logs 18658`。工作流在大文件根 `research/sft-a-v1-20261028/workflows/train-18658/`，状态镜像到训练目录 `SFT_WORKFLOW.json`。
+- 查询整条链：`powershell -ExecutionPolicy Bypass -File tools/remote.ps1 status 18658`；日志用 `logs 18658`。工作流在大文件根 `research/sft-a-v1-20261028/workflows/train-18658/`，训练/终评与分析状态分别为 `SFT_WORKFLOW.json`、`SFT_ANALYSIS_WORKFLOW.json`；CPU闭环日志 `analysis.log`。预计从500更新起训练余约4小时，终评及排队另计。
 - 用户要求等待期间整理本地报告。已生成 [详细图文报告](docs/reports/20261028/report.html)：涵盖全部历史基线、具体指令、C1/C2、E1/E2、迁移限制、SFT快照、证据分析及下一步条件方案；科学图表/9段既有仿真视频与对应文字穿插。来源SHA、统计分母、配对重算与本地引用已核验，生成只用本机缓存、没有新仿真/VLA调用/训练。报告期间SSH短暂超时后恢复，恢复后的只读复核确认上述270更新与正常交接。
 - 下一步优先完成当前SFT及自动配对复核，再按B选择性改善和A保留决定一个研究分支。目标条件潜策略、B-only对称诊断、阶段/恢复/OOD均是报告建议，**没有自动提交**。
 

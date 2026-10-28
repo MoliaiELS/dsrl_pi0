@@ -127,3 +127,33 @@ not evidence against SFT. No full RL training is authorized by this supplement.
 Use `tools/remote.ps1 sft-data/sft-ref/sft-align/sft-smoke/sft-train/sft-eval`.
 All prerequisite flags and config hashes must match. Long stages run on compute
 nodes; node1 data/reference/profile debugging is limited to20 minutes.
+
+## Automatic CPU closure after behavior evaluation
+
+`tools/sft_analysis.py` is an independent CPU-only observer, not an additional
+experiment. It waits for the existing handoff's `COMPLETE` state before reading
+the80 behavior outcomes. Training/evaluation keep their original immutable
+worktree; analysis uses a separate fixed commit and does not submit GPU jobs.
+
+Closure verifies all80 artifact hashes and saved action/noise/text/event traces,
+recomputes first grasp and both goals' ever/final/stable/selective completion,
+checks400-step termination, identical paired initial arrays and explicit z,
+and verifies checkpoint selection against the saved held-out losses. No model
+forward, simulation step, parameter update or reserved outcome is added.
+
+Statistics use20 whole-reset paired clusters, both goals/arms together,
+10,000 bootstrap replicates, fixed seed99025. These are development effect
+estimates, with no multiplicity adjustment; degenerate empirical intervals do
+not establish population certainty. One training seed is not a multi-seed
+confirmation. Report per-goal counts, gained/lost pairs, L, both-goals-correct
+and confusion counts. Never promote ever-B to instruction fidelity when A
+completed first. In-memory evaluation weights were not hashed after rollout;
+the report retains this limitation alongside profile/training freeze evidence.
+
+Outputs are under the evaluation run's `analysis/`: `trajectory_closure.json`,
+`paired_statistics.json`, `paired_summary.csv`, `REPORT.html`, the preselected
+eight-video index and a portable `result_bundle.zip`. Independent observer state
+is mirrored to training/evaluation `SFT_ANALYSIS_WORKFLOW.json`; the existing
+`status18658` command includes it. Upstream failure stops for review without
+automatic retraining or repeating evaluation. Tests cover a real saved400-step
+trajectory, corrupt actions, falsified grasp metadata and ever/selective metrics.
