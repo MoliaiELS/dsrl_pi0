@@ -34,10 +34,7 @@ def convert(logger):
     assert not (target/'model.safetensors').exists(),'Unvalidated partial conversion; inspect before retry'
     logger.log({'phase':'converting_original_checkpoint'},0)
     norm=source/'assets/physical-intelligence/libero/norm_stats.json'
-    subprocess.run([sys.executable,'-m','rlinf.utils.ckpt_convertor.openpi.convert','--mode','jax_to_openpi',
-        '--input-model',str(source),'--input-norm-stats',str(norm),'--output-model',str(target),
-        '--output-norm-stats',str(target/'physical-intelligence/libero/norm_stats.json'),
-        '--no-pi05','--action-horizon','50'],check=True)
+    subprocess.run([sys.executable,'-m','tools.sft_convert','--source',str(source),'--target',str(target)],check=True)
     assert file_sha(norm)==file_sha(target/'physical-intelligence/libero/norm_stats.json')
     atomic(target/'CONVERSION_COMPLETE.json',dict(converted_sha256=file_sha(target/'model.safetensors'),
            norm_sha256=file_sha(norm),rlinf_commit='fab7f407fbc611085eb163962e3c89c0ab424c1a',
@@ -112,6 +109,8 @@ def simulation(model,manifest,args,kind,output):
 
 def align(args,logger):
     import torch
+    assert torch.cuda.is_available(),'Allocated GPU cannot initialize CUDA'
+    logger.log({'phase':'native_gpu_ready','sft/gpu_name':torch.cuda.get_device_name(),'sft/torch_cuda':torch.version.cuda},0)
     gate=read(Path(args.gate_dir)/'SFT_DATA_PASS.json');assert gate['camera_alignment_passed']
     # Exit the JAX process before constructing the Torch model to release VRAM.
     references=Path(args.reference_dir) if args.reference_dir else args.output/'jax_reference'
