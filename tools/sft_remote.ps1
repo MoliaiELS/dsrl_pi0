@@ -18,7 +18,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Code synchronization failed.' }
 function Q([string]$Value) { return "'"+$Value.Replace("'", "'\''")+"'" }
 $repo=$machine.WorktreeRoot+'/'+$Commit.Substring(0,12)
 $slurm=$machine.Slurm
-$argsList=@('sbatch','--parsable',('--partition='+$slurm.Partition),('--account='+$slurm.Account),('--qos='+$slurm.Qos),('--gres='+$slurm.Gres),('--cpus-per-task='+$slurm.Cpus),('--time='+$machine.SftTimes.$stage),('--job-name=sft-a-'+$stage),('--output='+$machine.DataRoot+'/logs/slurm/%j.log'))
+$argsList=@('sbatch','--parsable','--no-requeue',('--partition='+$slurm.Partition),('--account='+$slurm.Account),('--qos='+$slurm.Qos),('--gres='+$slurm.Gres),('--cpus-per-task='+$slurm.Cpus),('--time='+$machine.SftTimes.$stage),('--job-name=sft-a-'+$stage),('--output='+$machine.DataRoot+'/logs/slurm/%j.log'))
 if ($slurm.Exclude) { $argsList+=('--exclude='+$slurm.Exclude) }
 if ($slurm.NodeList) {
     if ($slurm.NodeList -match '4090node1' -and $stage -notin @('data','reference','profile')) { throw 'node1 is allowed only for short data/reference/profile debugging.' }

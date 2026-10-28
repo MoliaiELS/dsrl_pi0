@@ -37,7 +37,7 @@ def recover_job(name,start):
 
 def evaluation_command(machine,repo,train,name,config):
     s=machine['Slurm'];root=machine['DataRoot']
-    command=['sbatch','--parsable','--partition='+s['Partition'],'--account='+s['Account'],
+    command=['sbatch','--parsable','--no-requeue','--partition='+s['Partition'],'--account='+s['Account'],
         '--qos='+s['Qos'],'--gres='+s['Gres'],'--cpus-per-task='+str(s['Cpus']),
         '--time='+machine['SftTimes']['evaluate'],'--job-name='+name,'--output='+root+'/logs/slurm/%j.log']
     if s.get('Exclude'):command+=['--exclude='+s['Exclude']]
