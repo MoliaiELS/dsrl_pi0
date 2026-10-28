@@ -77,6 +77,16 @@ schedule unchanged.
 
 ## Accounting and runtime
 
+The new environment is isolated at
+`/mnt/slurmfs-4090node1/homes/yguo704/miniforge3/envs/dsrl_sft_native_20261028`.
+The first NFS-target installation was stopped during slow cross-filesystem file
+copy, before any model training; its partial prefix and logs are retained. The
+new prefix reuses the same downloaded packages on the home filesystem. Arrow20
+is pinned for the resolved datasets API: Arrow21 removed PyExtensionType
+([official release](https://arrow.apache.org/release/21.0.0.html)). Original
+dsrl_pi0 is unchanged. Each GPU stage requires pip-check/import completion and
+the exact final requirements hash, and saves its native and simulation versions.
+
 Separate from the closed first_batch ledger: offline demonstrations100,
 training updates<=3000, migration development rollout8000 physical steps,
 post-SFT paired checks32000 steps, static model calls and failed engineering

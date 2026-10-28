@@ -19,7 +19,7 @@
     "EvalTime": "04:00:00",
     "TrainTime": "24:00:00"
   },
-  "SftEnvironmentPrefix": "/mnt/slurmfs-4090node3/user_data/yguo704/dsrl_pi0/envs/sft_a_20261028",
+  "SftEnvironmentPrefix": "/mnt/slurmfs-4090node1/homes/yguo704/miniforge3/envs/dsrl_sft_native_20261028",
   "RLinfRoot": "/mnt/slurmfs-4090node1/homes/yguo704/dsrl_vla_deps/rlinf-fab7f407fbc6",
   "SftTimes": {
     "data": "00:20:00",
