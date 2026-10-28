@@ -89,7 +89,7 @@ def packed(sample):
         image_mask__right_wrist_0_rgb=np.asarray(False))
 
 
-def simulation(model,manifest,args,kind,output):
+def simulation(model,manifest,args,kind,output,logger=None):
     import torch
     from tools.sft_data import transform_sample, PROMPTS
     req_r,req_w=os.pipe();res_r,res_w=os.pipe()
@@ -98,11 +98,16 @@ def simulation(model,manifest,args,kind,output):
         # Retain the original absolute asset paths as well as identical code:
         # model XML hashes include asset filenames, not just scene geometry.
         env['LIBERO_CONFIG_PATH']=str(Path(os.environ['DSRL_DATA_ROOT'])/'runs/job-18584/libero_config')
+        original=read(Path(os.environ['DSRL_DATA_ROOT'])/'runs/job-18584/resolved_protocol.json')['code_commit']
+        env['DSRL_SFT_SIM_LIBERO_ROOT']=str(Path.cwd().parent/original[:12]/'LIBERO')
+        assert Path(env['DSRL_SFT_SIM_LIBERO_ROOT']).is_dir()
     child=subprocess.Popen(['bash','tools/sft_old_env.sh','tools.sft_sim','--output',str(output),
         '--request-fd',str(req_w),'--response-fd',str(res_r),'--kind',kind,'--config',args.config],
         env=env,pass_fds=(req_w,res_r))
     os.close(req_w);os.close(res_r)
     runtime=dict(manifest,image_flip_axes={})
+    queries=0
+    if logger:logger.log({'phase':'native_'+kind+'_simulation','sft/simulation_arm':output.name},0)
     try:
         with os.fdopen(req_r,'rb',buffering=0) as requests,os.fdopen(res_w,'wb',buffering=0) as responses:
             while True:
@@ -117,6 +122,12 @@ def simulation(model,manifest,args,kind,output):
                 actions=actions*(np.asarray(norm['std'])+1e-6)+np.asarray(norm['mean'])
                 actions[:,:6]+=message['state'][None,:6]
                 pickle.dump(actions[:,:7],responses,protocol=5)
+                queries+=1
+                if logger and queries%20==0:
+                    latest=read(output/'latest.json') if (output/'latest.json').exists() else {}
+                    logger.log({'phase':'native_'+kind+'_simulation','sft/vla_queries_served':queries,
+                        'sft/physical_steps':latest.get('research/physical_steps'),
+                        'sft/current_case':latest.get('research/current_case')},0)
         assert child.wait(timeout=60)==0,'Simulator worker failed'
     finally:
         if child.poll() is None:child.terminate();child.wait(timeout=20)
@@ -168,7 +179,7 @@ def align(args,logger):
     # Alarms keep training closed, but the planned development-only closed loop
     # still runs to diagnose whether numeric differences change behavior.
     manifest=read(Path(args.gate_dir)/'data_manifest.json')
-    results=simulation(model,manifest,args,'alignment',args.output/'closed_loop')
+    results=simulation(model,manifest,args,'alignment',args.output/'closed_loop',logger)
     root=Path(os.environ['DSRL_DATA_ROOT'])/'runs/job-18584/cases'
     pairs=[]
     for r in results:
@@ -393,11 +404,11 @@ def evaluate(args,logger):
     cfg=read(args.config);gate=Path(args.gate_dir);manifest=read(gate/'data_manifest.json')
     selected=read(gate/'SFT_TRAINING_COMPLETE.json')['selected'];atomic(args.output/'selected_checkpoint.json',selected)
     model=load_model().eval()
-    baseline=simulation(model,manifest,args,'behavior',args.output/'native_unadapted')
+    baseline=simulation(model,manifest,args,'behavior',args.output/'native_unadapted',logger)
     del model;gc.collect();torch.cuda.empty_cache()
     model,params=adapters(load_model(),cfg['training'],args.output)
     restore_checkpoint(Path(selected['path']),params);model.eval()
-    adapted=simulation(model,manifest,args,'behavior',args.output/'adapted')
+    adapted=simulation(model,manifest,args,'behavior',args.output/'adapted',logger)
     for seed in cfg['behavior_reset_seeds']:
         name=f'E1__{seed}.npz'
         with np.load(args.output/'native_unadapted/common_states'/name) as base,np.load(args.output/'adapted/common_states'/name) as tuned:
@@ -430,6 +441,7 @@ def main():
     if args.mode!='verify':atomic(args.output/'numerical_compatibility.json',dict(
         siglip_and_gemma_gelu='original JAX typed elementary tanh formula, including bf16 intermediate rounding; CPU 1001-point bf16 reference exact',
         source_policy_load='all checkpoint leaves bf16; native fp32 islands hold bf16-rounded values upcast to fp32',
+        single_gpu_loss_state_dtype='fp32, identical to inference input; no unnecessary FSDP bf16 input downcast',
         checkpoint_files_modified=False,tf32_matmul=False,tf32_cudnn=False,bf16_reduced_precision_reduction=False,
         upstream_rlinf_unmodified=True))
     try:

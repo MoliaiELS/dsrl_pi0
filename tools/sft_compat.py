@@ -2,6 +2,14 @@
 from types import MethodType
 import math
 
+_original_observation_cast=None
+
+
+def observation_cast_preserving_state(observation,dtype):
+    result=_original_observation_cast(observation,dtype)
+    result.state=observation.state.float()
+    return result
+
 
 def original_gelu(x):
     """JAX nn.gelu's operations, including its bfloat16 intermediate rounding.
@@ -58,4 +66,11 @@ def preserve_original_policy_load(model):
         if p.dtype==torch.float32:
             p.data=p.data.to(torch.bfloat16).to(torch.float32);rounded.append(name)
     model.llm.embedder.encode=MethodType(original_embedding_encode,model.llm.embedder)
+    # The upstream cast serves FSDP mixed-precision modules. Here state_proj is
+    # fp32 in a single-GPU model, so keep the same fp32 state as inference/JAX.
+    global _original_observation_cast
+    from rlinf.models.embodiment.openpi.modules import model as observation_module
+    if _original_observation_cast is None:
+        _original_observation_cast=observation_module._observation_to_dtype
+    observation_module._observation_to_dtype=observation_cast_preserving_state
     return rounded
