@@ -4,6 +4,11 @@
 
 ### SFT-A 前置更新（10-28）
 
+- **当前GPU作业18655（e1dd2510，3090node2）** 正在20个原Base开发回合的native闭环诊断，已实际推进超过1,300物理步，初态XML、物理、本体和双图像检查通过；0 SFT更新。静态120组证据复用18653，三种场景的native输出同输入复测一致，保留原`passed=false`，不会伪称数值对齐通过。
+- **真实演示顺序审计完成**：100条完整轨迹、12,766次离线物理状态恢复、0新增环境步/模型调用。A/B各50条的首个稳定抓取全部为正确对象，官方终态各50/50成功。审计文件`research/sft-a-v1-20261028/demo_order/DEMONSTRATION_ORDER_AUDIT.json`，为目标监督真实性提供额外证据。
+- 新增GPU对照显示原JAX在4090/3090上、输入数组逐项相同，也有33/120组超过原工程报警线：平均RMSE0.01372、95分位0.07140、最大RMSE0.08778、最大绝对差2.04034，主要为夹爪切换附近。`JAX_CROSS_GPU_NUMERICS.json`保留全部分解。这不证明跨框架等价；下一步结合闭环结果按规约11.1判断合理对齐或明确同native底座内部实验范围，不跨框架做单变量归因。
+- 已补齐来源明确的数值兼容：原推理加载器将所有参数先转bf16；native FP32计算区域使用相同舍入后的参数值；原Flax GELU逐步bf16运算（CPU1001点逐位一致）；文本embedding缩放常数dtype（48个真实token逐位一致）。RLinf与原OpenPI源码文件未改，适配在`tools/sft_compat.py`，权重文件不改。单卡SFT loss保留与推理相同的fp32 state输入。
+- 18649已完成权重转换后因掩码维度失败；18650/18651触发静态报警；18652生成并保留RTX3090的120组JAX参考后主动停止过时诊断；18653在场景XML初态门禁发现新旧资产绝对路径差，18654在首次数组传输发现NumPy2.1.3→1.26.4 pickle不兼容。上述均为训练前诊断，0更新，0物理步。已固定原LIBERO导入目录并验证XML/physics误差0；改为无pickle的NPZ帧，跨新旧环境RGB/噪声/动作往返精确检查通过。
 - 独立环境已通过 `pip check` 与 Torch/Torchvision/PEFT/JAX/HDF5/datasets/native Pi0 导入检查。有效prefix改为个人Conda根目录 `envs/dsrl_sft_native_20261028`，原dsrl_pi0不变；Torch2.11.0+cu130、Torchvision0.26.0+cu130、PEFT0.17.1、JAX0.5.3、Arrow20、datasets2.14.4，完整freeze SHA `f2374e55360d3823e2e2451faf80f7b44515325603e7cfbd911041304c4a1115`。最初NFS环境安装因大量跨盘小文件写入停掉，部分目录与日志保留；改到个人home复用缓存后安装很快完成。
 - **18648 FAILED/1（34秒）** 是native转换器未去掉原checkpoint的NNX `value`叶包装，非训练/数值失败，0更新。兼容适配 `tools/sft_convert.py` 采用原OpenPI加载器相同的去尾路径规则，验证数组对象保持不变；RLinf源码未修改。
 - **18649 RUNNING，3090node2，代码7432399**：实际分配的RTX3090已成功初始化CUDA13，正在转换原checkpoint；之后120组静态比较→20个原Base开发回合闭环。**尚未SFT更新**，必须等完整对齐通过。
